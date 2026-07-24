@@ -86,10 +86,11 @@ def test_skill_loader_catalog_and_load(tmp_path):
 def test_builtin_document_skills_ship_with_every_engine():
     engine = build_engine(agent=chat_agent(), provider=_Stub())
     names = {c["name"] for c in engine.skill_loader.catalog()}
-    assert {"docx", "pptx", "pdf"} <= names
+    assert {"docx", "pptx", "xlsx", "pdf"} <= names
     loaded = engine.registry.execute("load_skill", {"name": "docx"})
     assert "python-docx" in loaded["instructions"]
     assert loaded["resources_path"]
+    assert "openpyxl" in engine.registry.execute("load_skill", {"name": "xlsx"})["instructions"]
 
 
 def test_workspace_skill_overrides_builtin(tmp_path):

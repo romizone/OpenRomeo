@@ -25,9 +25,9 @@ models, builtin document skills, image generation, and a fresh identity.*
 - **Latest frontier models** — GPT‑5.6 · Claude Fable 5 / Sonnet 5 · Gemini 3.6 · Kimi K3 ·
   MiniMax M3 · DeepSeek V4 · GLM‑5.2 · Grok 4.5 — vision enabled on the multimodal flagships,
   or run fully local with Ollama.
-- **Builtin document skills** — `docx` (Word), `pptx` (PowerPoint), and `pdf` skills in the
-  Anthropic SKILL.md format guide the agent to produce professional files; your own skills
-  override them by name.
+- **Builtin document skills** — the Claude Desktop-standard suite: `docx` (Word), `pptx`
+  (PowerPoint), `xlsx` (Excel), and `pdf`, in the Anthropic SKILL.md format; your own
+  skills override them by name.
 - **Image generation** — a `generate_image` tool renders PNGs into your workspace via
   OpenAI `gpt-image-2` or Gemini Nano Banana 2, using the provider key you already configured.
 - **25+ integrations** — GitHub, Slack, Jira, Notion, Gmail, Google Calendar, HubSpot, Outlook,
@@ -51,6 +51,54 @@ models, builtin document skills, image generation, and a fresh identity.*
 > SmartScreen shows a warning — choose **More info → Run anyway**.
 
 Open the app, add a model key (or point it at Ollama), and ask for something real.
+
+## 🔐 First run — no account needed
+
+OpenRomeo has **no sign-up, no login, and no subscription**. Authentication works like this:
+
+1. **The app itself** — none. Download, open, pick a working folder.
+2. **Your model key (the only requirement)** — paste your own API key for OpenAI,
+   Anthropic, Google, MiniMax, Kimi, or any supported provider (the **Test** button
+   verifies it with one read-only call), **or** point at a local
+   [Ollama](https://ollama.com) and skip keys entirely. Model usage bills to *your*
+   provider account.
+3. **Integrations (optional)** — two paths per connector:
+   - **Manual token paste** — fully local, works for every integration.
+   - **One-click OAuth** — an optional sign-in to the upstream *OpenWorker Cloud*
+     broker that handles OAuth consent for you. Tokens are still stored only on your
+     machine; skipping it entirely is fully supported.
+4. **Where credentials live** — locally, in the app's secret store
+   (`~/.config/coworker/` on macOS/Linux, `%APPDATA%\coworker` on Windows). Nothing
+   is sent to an OpenRomeo server — there isn't one.
+
+## 🧩 Skills
+
+Skills teach the agent repeatable workflows using the
+[Anthropic Agent Skills](https://github.com/anthropics/skills) `SKILL.md` format —
+skills written for Claude Desktop / Claude Code drop straight in.
+
+**Builtin** (ship with the app): `docx`, `pptx`, `xlsx`, `pdf` — the standard document
+suite. Only each skill's name + description sits in context; full instructions load
+on demand.
+
+**Add a skill** — create a folder with a `SKILL.md`:
+
+```
+~/.config/coworker/skills/<name>/SKILL.md        # every session (user-wide)
+<your-project>/.coworker/skills/<name>/SKILL.md  # one workspace only
+```
+
+```markdown
+---
+name: release-notes
+description: Draft release notes from merged PRs. Use when the user asks for a changelog.
+---
+Step-by-step instructions the agent follows when the skill is loaded…
+```
+
+**Override a builtin** — use the same name (`docx`, `xlsx`, …) in your user or
+workspace folder; it wins over the builtin. **Remove a skill** — delete its folder.
+New sessions pick up changes immediately; no restart needed.
 
 ## 🚀 Quick start (from source)
 
