@@ -1,113 +1,118 @@
+<div align="center">
+
+<img src="docs/assets/openromeo-icon.png" width="120" alt="OpenRomeo icon" />
+
 # OpenRomeo
 
-> Personal fork of [OpenWorker](https://github.com/andrewyng/openworker) (MIT) with: the
-> latest frontier models (GPT-5.6, Claude Sonnet 5/Fable 5, Gemini 3.6, Kimi K3,
-> MiniMax M3, Grok 4.5 — vision enabled on the multimodal ones), builtin docx / pptx /
-> pdf document skills, and a `generate_image` tool (gpt-image-2 / Gemini Nano Banana 2).
+**Your AI coworker that delivers finished work — on your desktop, with your keys.**
 
-**AI that gets your everyday tasks done.** OpenRomeo is an open-source AI coworker that lives on your desktop and delivers **finished work**, not just chat: a polished document, a Slack reply with the numbers, an updated calendar, a triaged inbox.
+[![Release](https://img.shields.io/github/v/release/romizone/OpenRomeo?label=release&color=2563eb)](https://github.com/romizone/OpenRomeo/releases)
+[![CI](https://github.com/romizone/OpenRomeo/actions/workflows/ci.yml/badge.svg?branch=work)](https://github.com/romizone/OpenRomeo/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-22c55e.svg)](LICENSE)
+[![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-64748b.svg)](#-download)
 
-It runs on your machine and doesn't lock you into any model: bring your own API key for OpenAI, Anthropic, Google, or an open-weight provider, or run fully local with Ollama. Your data leaves your machine only through the model and integrations *you* choose.
+*A supercharged fork of [OpenWorker](https://github.com/andrewyng/openworker) — latest frontier
+models, builtin document skills, image generation, and a fresh identity.*
 
-## Download
+</div>
 
-Installers are produced by this repo's GitHub Actions release workflow
-(macOS Apple Silicon `.dmg`, Windows x64 NSIS/MSI) — see the
-[Releases](https://github.com/romizone/OpenRomeo/releases) page. Local builds are
-unsigned: macOS first launch needs right-click → Open, Windows shows a SmartScreen
-warning.
+---
+
+## ✨ Highlights
+
+- **Finished work, not just chat** — polished documents, updated calendars, Slack replies with
+  the numbers, a triaged inbox. Deliverables land as real files.
+- **Latest frontier models** — GPT‑5.6 · Claude Fable 5 / Sonnet 5 · Gemini 3.6 · Kimi K3 ·
+  MiniMax M3 · DeepSeek V4 · GLM‑5.2 · Grok 4.5 — vision enabled on the multimodal flagships,
+  or run fully local with Ollama.
+- **Builtin document skills** — `docx` (Word), `pptx` (PowerPoint), and `pdf` skills in the
+  Anthropic SKILL.md format guide the agent to produce professional files; your own skills
+  override them by name.
+- **Image generation** — a `generate_image` tool renders PNGs into your workspace via
+  OpenAI `gpt-image-2` or Gemini Nano Banana 2, using the provider key you already configured.
+- **25+ integrations** — GitHub, Slack, Jira, Notion, Gmail, Google Calendar, HubSpot, Outlook,
+  and anything reachable over [MCP](https://modelcontextprotocol.io/) — plus your terminal
+  and local files.
+- **Approval‑gated by design** — writes, sends, shell commands, and paid API calls ask first;
+  unattended runs park their asks in an inbox instead of acting alone.
+- **Local‑first privacy** — conversations, tokens, and keys stay on your machine. The only
+  optional cloud piece brokers OAuth handshakes.
+
+## 📦 Download
+
+| Platform | Installer | Notes |
+|---|---|---|
+| macOS · Apple Silicon | [`OpenRomeo-macos-arm64.dmg`](https://github.com/romizone/OpenRomeo/releases/latest/download/OpenRomeo-macos-arm64.dmg) | macOS 12+ |
+| macOS · Intel | [`OpenRomeo-macos-intel.dmg`](https://github.com/romizone/OpenRomeo/releases/latest/download/OpenRomeo-macos-intel.dmg) | macOS 12+ |
+| Windows 10/11 · x64 | [`OpenRomeo-windows-setup.exe`](https://github.com/romizone/OpenRomeo/releases/latest/download/OpenRomeo-windows-setup.exe) | NSIS installer |
+| Windows 10/11 · x64 (MSI) | [`OpenRomeo-windows.msi`](https://github.com/romizone/OpenRomeo/releases/latest/download/OpenRomeo-windows.msi) | For managed installs |
+
+> **Unsigned builds:** on macOS, first launch needs **right‑click → Open**; on Windows,
+> SmartScreen shows a warning — choose **More info → Run anyway**.
 
 Open the app, add a model key (or point it at Ollama), and ask for something real.
 
-## How it works
+## 🚀 Quick start (from source)
 
-1. Tell OpenWorker the outcome you want - "prepare a customer brief," "untangle my calendar," "draft a report," "check where the release stands across Jira and GitHub."
-2. It breaks the task into steps and works across your desktop, files, and connected apps.
-3. Before anything consequential - sending a message, changing a calendar, running a command - it checks in and you approve or redirect.
-4. You get the finished deliverable, not a to-do list.
+Prerequisites: Python 3.10+, Node 20+, and the Rust toolchain via [rustup](https://rustup.rs/).
 
-Under the hood:
+```bash
+git clone https://github.com/romizone/OpenRomeo
+cd OpenRomeo
+bash packaging/setup_dev_env.sh                    # one-time: creates .venv
+
+.venv/bin/openworker-server --cwd ~/some/project --port 8765   # terminal 1
+
+cd surfaces/gui && npm install && npm run dev                  # terminal 2 → browser UI
+```
+
+For the full desktop app, replace the last step with `npm run tauri dev`.
+Tests: `.venv/bin/pytest` (backend) · `npm test` + `npm run e2e` in `surfaces/gui` (GUI).
+
+## 🧠 Bring your own model
+
+Model access is yours: pick a provider, paste your key, switch anytime.
+
+| Provider | Curated models |
+|---|---|
+| OpenAI | GPT‑5.6 Sol / Terra / Luna · GPT‑5.5 |
+| Anthropic | Claude Fable 5 · Opus 4.8 · **Sonnet 5** · Haiku 4.5 |
+| Google | Gemini 3.6 Flash · 3.1 Pro · 2.5 Pro / Flash |
+| Moonshot | **Kimi K3** (2.8T, 1M context, vision) |
+| MiniMax | **MiniMax M3** (428B MoE, 1M context, vision) |
+| xAI | **Grok 4.5** (vision) |
+| DeepSeek · Z.ai · Qwen · Mistral | V4 Pro/Flash · GLM‑5.2 · Qwen3 Max · Mistral Large |
+| Together · Fireworks | Open‑weight flagships (Kimi, GLM, DeepSeek, Llama 4) |
+| Ollama | Any local model |
+
+Any custom model string works too, with conservative capability fallbacks.
+
+## 🏗 Architecture
 
 ```text
 ┌────────────────────────────────────────────────┐
-│              OpenWorker desktop app            │  native shell + GUI
+│             OpenRomeo desktop app              │  Tauri shell + React UI
 ├────────────────────────────────────────────────┤
-│           local agent server (Python)          │  engine · tools · connectors - built on aisuite
+│           local agent server (Python)          │  engine · tools · skills · connectors
 ├───────────────┬────────────────┬───────────────┤
 │  your files   │   your tools   │  your model   │  everything runs with your keys,
 │  & terminal   │ 25+ connectors │  any provider │  on your machine
 └───────────────┴────────────────┴───────────────┘
 ```
 
-## What it can do
-
-- **Produce real deliverables** - documents, spreadsheets, reports, and web pages land as files you can open and share.
-- **Work from Slack** - mention `@OpenWorker` in a channel; a session opens on your desktop, the work happens with your tools, and the answer comes back as a thread reply.
-- **Use your everyday tools** - 25+ integrations including GitHub, Slack, Jira, Notion, Linear, HubSpot, Outlook, monday.com, Gmail, and Google Calendar, plus your **terminal and local files**. Any tool reachable over [MCP](https://modelcontextprotocol.io/) plugs in too, with per-tool control.
-- **Run on a schedule** - automations for recurring work: a morning brief, a weekly report, a standing watch over a channel. Runs land in the app with full transcripts.
-- **Ask before acting** - writes, sends, and shell commands are approval-gated. Unattended runs park their asks in an inbox instead of acting on their own.
-
-## Bring your own model
-
-Model access is yours: pick a provider, paste your key, switch anytime. Supported out of the box:
-
-**OpenAI · Anthropic · Google Gemini · Inkling (Thinking Machines) · GLM (Z.ai) · DeepSeek · Kimi (Moonshot) · Qwen · MiniMax · Mistral · Grok (xAI)** - plus open-weight models via **Together** and **Fireworks**, and fully local models via **Ollama**.
-
-A curated model list marks what we've verified for tool-calling work. Adding any model string works at your own risk.
-
-## Privacy
-
-OpenWorker is local-first. Everything lives on your machine: the agent loop, your conversations, connector tokens, and model keys - all in the app's local secret store. The only cloud piece is a small service that brokers OAuth handshakes for connectors. You can always use the App without signing-in - use the connectors via manually-created credentials/API-keys.
-
-## Run from source
-
-Prerequisites: Python 3.10+, Node 20+, and (for the desktop shell) the Rust toolchain via [rustup](https://rustup.rs/).
-
-```shell
-git clone https://github.com/andrewyng/openworker
-cd openworker
-
-# 1. One-time bootstrap - creates the Python venv at .venv
-#    (on Windows, run from Git Bash or WSL)
-bash packaging/setup_dev_env.sh
-
-# 2. Start the local agent server
-.venv/bin/openworker-server --cwd ~/some/project --port 8765
-#    (Windows: .venv\Scripts\openworker-server.exe)
-
-# 3. In a second terminal, start the UI
-cd surfaces/gui
-npm install
-npm run dev        # browser UI on the Vite dev port
-```
-
-To run the full desktop app instead of the browser UI, replace step 3 with `npm run tauri dev` (from `surfaces/gui/`) - the Tauri shell launches the window and supervises the server itself.
-
-Tests: `.venv/bin/pytest` (server), `npm test` and `npm run e2e` in `surfaces/gui` (GUI unit + hermetic end-to-end). Desktop bundles are built with `packaging/build_dmg.sh` / `packaging/build_windows.ps1`.
-
-## Repository layout
-
 | Directory | What's in it |
 |---|---|
-| `coworker/` | Python backend - agent engine, model providers, connectors, MCP client, memory, automations |
-| `surfaces/gui/` | Desktop app - React UI + Tauri shell that supervises the server |
-| `stt/` | Speech-to-text sidecar (Rust) for voice input |
-| `packaging/` | Installer builds (macOS DMG, Windows), auto-update manifest, dev bootstrap |
-| `docs/` | Design specs and decision logs |
-| `tests/` | Backend test suite |
+| `coworker/` | Python backend — agent engine, providers, connectors, MCP, memory, automations, builtin skills |
+| `surfaces/gui/` | Desktop app — React UI + Tauri shell that supervises the server |
+| `stt/` | Speech‑to‑text sidecar (Rust, local Whisper) for voice input |
+| `packaging/` | Installer builds (macOS DMG incl. Intel cross‑build, Windows), auto‑update manifest |
+| `tests/` | Backend test suite (870+ tests) |
 
-## Built on aisuite
+## 🙏 Credits & license
 
-OpenWorker's engine is built on [**aisuite**](https://github.com/andrewyng/aisuite), a lightweight Python library providing a unified chat-completions API across LLM providers and an agents layer with tools, toolkits, and MCP support. If you want to build your own agent harness rather than use ours, start there; this repo is a working reference for what aisuite can carry.
+OpenRomeo is a personal fork of [**OpenWorker**](https://github.com/andrewyng/openworker) by
+Andrew Ng and contributors, which is built on [**aisuite**](https://github.com/andrewyng/aisuite).
+Huge thanks to both projects — the agent engine, permission model, and connector platform are
+their work.
 
-OpenWorker was originally developed inside the aisuite repository before moving to its own home here; thanks to the aisuite contributors whose work it builds on.
-
-## Contributing
-
-Contributions and bug reports are welcome - open an [issue](https://github.com/andrewyng/openworker/issues) or a pull request. The app updates itself, so fixes reach installs quickly.
-For any PR, please attach screenshots of what was broken and how it is fixed now. We will shortly add features that you can contribute to.
-Please note that we are actively developing based off a internal list and goal, so we may not approve PRs that add features that are already under-development or deviates from our vision.
-
-## License
-
-MIT - see [LICENSE](LICENSE).
+Licensed under [MIT](LICENSE).
