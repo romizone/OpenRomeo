@@ -360,6 +360,14 @@ def test_compat_models_route_and_get_tool_capabilities():
         assert caps.tools and caps.streaming
 
 
+def test_multimodal_compat_flagships_have_vision_but_not_pdf():
+    """K3 / M3 / Grok 4.5 accept image_url parts on their OpenAI-compatible APIs
+    (probed 2026-07-24); none has an inline file part, so PDF stays a fallback."""
+    for model in ("kimi:kimi-k3", "minimax:MiniMax-M3", "xai:grok-4.5"):
+        caps = capabilities_for(model)
+        assert caps.vision and not caps.pdf, model
+
+
 def test_compat_recommended_models_are_in_the_suggested_lists():
     """set_provider only auto-adds the recommended model if it's in _suggested_models —
     keep the registry and the manager's COMPAT_MODELS table in lockstep."""

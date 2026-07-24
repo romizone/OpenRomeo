@@ -32,6 +32,12 @@ _AGENTIC = ModelCapabilities(
 _AGENTIC_VISION = ModelCapabilities(
     tools=True, vision=True, pdf=True, parallel_tool_calls=True, streaming=True
 )
+# Multimodal compat vendors (probed against vendor docs 2026-07-24): their
+# OpenAI-compatible APIs accept `image_url` content parts (base64 data URIs included),
+# but still have no inline file part — PDFs keep falling back via pdf_support.py.
+_AGENTIC_VISION_NOPDF = ModelCapabilities(
+    tools=True, vision=True, pdf=False, parallel_tool_calls=True, streaming=True
+)
 
 
 @dataclass(frozen=True)
@@ -76,15 +82,14 @@ MATRIX: dict[str, ModelEntry] = {
     "zai:glm-5.2": ModelEntry("GLM-5.2 · Z AI"),
     "deepseek:deepseek-v4-flash": ModelEntry("DeepSeek V4 Flash · DeepSeek"),
     "deepseek:deepseek-v4-pro": ModelEntry("DeepSeek V4 Pro · DeepSeek"),
-    # Kimi K3 (2026-07-16): 2.8T-param flagship, 1M context, tool calls — native API only
-    # until the open weights land (~2026-07-27; the reseller rows below stay K2.x till then).
-    "kimi:kimi-k3": ModelEntry("Kimi K3 · Moonshot"),
-    # MiniMax M3 (2026-06-01): 428B MoE, 1M context. Vision is native upstream but stays
-    # off here per the compat-vendor policy (unprobed via their OpenAI-compatible API).
-    "minimax:MiniMax-M3": ModelEntry("MiniMax M3 · MiniMax"),
+    # Kimi K3 (2026-07-16): 2.8T-param flagship, 1M context, native vision — native API
+    # only until the open weights land (~2026-07-27; the reseller rows stay K2.x till then).
+    "kimi:kimi-k3": ModelEntry("Kimi K3 · Moonshot", _AGENTIC_VISION_NOPDF),
+    # MiniMax M3 (2026-06-01): 428B MoE, 1M context, native multimodal.
+    "minimax:MiniMax-M3": ModelEntry("MiniMax M3 · MiniMax", _AGENTIC_VISION_NOPDF),
     "qwen:qwen3-max": ModelEntry("Qwen3 Max · Alibaba"),
-    # Grok 4.5 (2026-07-08) replaced 4.3 as xAI's flagship for code/agentic work.
-    "xai:grok-4.5": ModelEntry("Grok 4.5 · xAI"),
+    # Grok 4.5 (2026-07-08) replaced 4.3 as xAI's flagship; takes image inputs.
+    "xai:grok-4.5": ModelEntry("Grok 4.5 · xAI", _AGENTIC_VISION_NOPDF),
     "mistral:mistral-large-latest": ModelEntry("Mistral Large · Mistral"),
     # -- resellers (their model namespaces, verbatim) -----------------------------
     "together:thinkingmachines/Inkling": ModelEntry("Inkling · via Together"),
