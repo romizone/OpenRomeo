@@ -80,6 +80,29 @@ def test_skill_loader_catalog_and_load(tmp_path):
     assert reg.execute("load_skill", {"name": "missing"})["error"]
 
 
+# -- builtin document skills (docx / pptx / pdf) ---------------------------------
+
+
+def test_builtin_document_skills_ship_with_every_engine():
+    engine = build_engine(agent=chat_agent(), provider=_Stub())
+    names = {c["name"] for c in engine.skill_loader.catalog()}
+    assert {"docx", "pptx", "pdf"} <= names
+    loaded = engine.registry.execute("load_skill", {"name": "docx"})
+    assert "python-docx" in loaded["instructions"]
+    assert loaded["resources_path"]
+
+
+def test_workspace_skill_overrides_builtin(tmp_path):
+    ws_skills = tmp_path / ".coworker" / "skills"
+    _make_skill(ws_skills, "pdf", "custom pdf flow", "Use my in-house pdf pipeline.")
+    engine = build_engine(agent=code_agent(), workspace=tmp_path, provider=_Stub())
+    try:
+        loaded = engine.registry.execute("load_skill", {"name": "pdf"})
+        assert "in-house" in loaded["instructions"]
+    finally:
+        engine.executor.close()
+
+
 # -- engine assembly per agent --------------------------------------------------
 
 

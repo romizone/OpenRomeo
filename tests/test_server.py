@@ -631,16 +631,16 @@ def test_ws_first_message_binds_then_midsession_switch_persists_notice(tmp_path)
         # message WITHOUT a model keeps the bound one (no silent reset to default)
         ws.send_json({"type": "user_message", "text": "again"})
         _drain(ws)
-        ws.send_json({"type": "set_model", "model": "kimi:kimi-k2.6"})
+        ws.send_json({"type": "set_model", "model": "kimi:kimi-k3"})
         changed = ws.receive_json()
         assert changed["type"] == "model_changed"
-        assert changed["data"]["model"] == "kimi:kimi-k2.6"
+        assert changed["data"]["model"] == "kimi:kimi-k3"
         assert "Kimi" in changed["data"]["text"]
         ws.send_json({"type": "user_message", "text": "switched now"})
         _drain(ws)
     mgr = client.app.state.manager
     engine = mgr._engines["model-per-msg"]
-    assert engine.model == "kimi:kimi-k2.6"
+    assert engine.model == "kimi:kimi-k3"
     # The marker is persisted between the turns; the provider never sees it.
     messages = client.get("/v1/sessions/model-per-msg/messages").json()["messages"]
     notices = [m for m in messages if m["role"] == "notice"]

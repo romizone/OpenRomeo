@@ -60,6 +60,14 @@ for pkg in ("uvicorn", "certifi", "anyio", "websockets", "pypdf", "pypdfium2"):
     binaries += b
     hiddenimports += h
 
+# Package data files that module collection misses (markdown, not .py): the builtin
+# persona manifest(s) and the builtin document skills. Placed at their package-relative
+# paths so `Path(__file__).parent / ...` lookups resolve inside the bundle.
+datas += [
+    (os.path.join(ROOT, "coworker", "personas", "builtin"), "coworker/personas/builtin"),
+    (os.path.join(ROOT, "coworker", "skills", "builtin"), "coworker/skills/builtin"),
+]
+
 # Windows has no system tz database; tzdata ships the zoneinfo files the scheduler needs.
 if IS_WINDOWS:
     try:

@@ -392,8 +392,8 @@ def test_switch_model_appends_notice_only_midsession(tmp_path):
     # Same model: no-op.
     assert engine.switch_model("zai:glm-5.2") is None
     # Real mid-session switch: persisted marker with the matrix label.
-    text = engine.switch_model("kimi:kimi-k2.6")
-    assert "Kimi K2.6" in text and engine.model == "kimi:kimi-k2.6"
+    text = engine.switch_model("kimi:kimi-k3")
+    assert "Kimi K3" in text and engine.model == "kimi:kimi-k3"
     notice = engine.messages[-1]
     assert notice["role"] == "notice" and notice["kind"] == "model_switch"
     assert all(m.get("role") != "notice" for m in engine._outbound_messages())

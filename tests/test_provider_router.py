@@ -412,7 +412,7 @@ def test_provider_builders(monkeypatch):
 
 
 def test_anthropic_gemini_capabilities():
-    for m in ("anthropic:claude-sonnet-4-6", "gemini:gemini-2.5-flash"):
+    for m in ("anthropic:claude-sonnet-5", "gemini:gemini-2.5-flash"):
         caps = capabilities_for(m)
         assert caps.tools is True and caps.vision is True and caps.streaming is True
         assert caps.parallel_tool_calls is True  # both native: results fold correctly
@@ -428,7 +428,7 @@ def test_anthropic_gemini_provider_config(tmp_path, monkeypatch):
     provs = {p["name"]: p for p in mgr.get_providers()}
     assert provs["anthropic"]["configured"] is False
     assert provs["gemini"]["needs_key"] is True
-    assert "claude-sonnet-4-6" in provs["anthropic"]["suggested_models"]
+    assert "claude-sonnet-5" in provs["anthropic"]["suggested_models"]
     assert "gemini-2.5-flash" in provs["gemini"]["suggested_models"]
 
     res = mgr.set_provider("anthropic", {"api_key": "sk-ant-test"})

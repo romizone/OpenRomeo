@@ -1406,14 +1406,15 @@ class SessionManager:
             pass
 
     # Suggestions for the OpenAI-compatible vendor providers (checked against vendor docs
-    # 2026-07-04; refresh alongside `recommended_model` in providers/registry.py).
+    # 2026-07-04, flagships refreshed 2026-07-24; refresh alongside `recommended_model`
+    # in providers/registry.py).
     COMPAT_MODELS = {
         "zai": ["glm-5.2", "glm-4.6"],
         "deepseek": ["deepseek-v4-flash", "deepseek-v4-pro"],
-        "kimi": ["kimi-k2.6", "kimi-k2.5"],
-        "minimax": ["MiniMax-M2.5", "MiniMax-M2.5-highspeed", "MiniMax-M3"],
+        "kimi": ["kimi-k3", "kimi-k2.6", "kimi-k2.5"],
+        "minimax": ["MiniMax-M3", "MiniMax-M2.5", "MiniMax-M2.5-highspeed"],
         "qwen": ["qwen3-max", "qwen3-coder-plus", "qwen-plus"],
-        "xai": ["grok-4.3", "grok-4"],
+        "xai": ["grok-4.5", "grok-4.3", "grok-4"],
         "mistral": ["mistral-large-latest", "mistral-small-latest"],
     }
 
@@ -3384,7 +3385,11 @@ class SessionManager:
         return _list_agents()
 
     def list_skills(self) -> list[dict[str, Any]]:
-        loader = SkillLoader([state_dir() / "skills"])
+        # Same dirs the engine uses (builtin + user state-dir), minus the per-session
+        # workspace overlay — this is the app-level list.
+        from ..agent import _skill_dirs
+
+        loader = SkillLoader(_skill_dirs(None))
         return loader.catalog()
 
     def list_memory(self) -> list[dict[str, Any]]:

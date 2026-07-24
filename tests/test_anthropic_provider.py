@@ -251,7 +251,7 @@ def test_complete_text_turn_with_defaults():
     fake = _FakeClient(response=_text_response("hello"))
     provider = AnthropicProvider(client=fake)
     turn = provider.complete(
-        model="claude-sonnet-4-6",
+        model="claude-sonnet-5",
         messages=[
             {"role": "system", "content": "sys"},
             {"role": "user", "content": "hi"},
@@ -262,7 +262,7 @@ def test_complete_text_turn_with_defaults():
         and turn.finish_reason == "stop"
         and not turn.has_tool_calls
     )
-    assert fake.kwargs["model"] == "claude-sonnet-4-6"
+    assert fake.kwargs["model"] == "claude-sonnet-5"
     assert fake.kwargs["system"] == "sys"
     assert fake.kwargs["max_tokens"] == DEFAULT_MAX_TOKENS  # required param, injected
     assert "tools" not in fake.kwargs
@@ -480,7 +480,7 @@ def test_resolve_api_key_env_then_secrets(monkeypatch):
 
 
 def test_anthropic_capabilities_parallel_tool_calls():
-    caps = capabilities_for("anthropic:claude-sonnet-4-6")
+    caps = capabilities_for("anthropic:claude-sonnet-5")
     assert caps.tools and caps.vision and caps.streaming
     assert caps.parallel_tool_calls is True  # native provider folds results correctly
 
@@ -537,7 +537,7 @@ def test_thinking_config_is_model_family_aware():
     """API drift (owner-hit 2026-07-23): budget_tokens 400s on the Claude 5/4.7+ family
     ('use thinking.type.adaptive'); older models still need enabled+budget. display
     must be summarized on the new family or the trace text arrives empty."""
-    for model in ("claude-fable-5", "claude-opus-4-8", "claude-sonnet-4-6"):
+    for model in ("claude-fable-5", "claude-opus-4-8", "claude-sonnet-5"):
         client = _FakeClient(response=_text_response())
         AnthropicProvider(client=client, thinking_budget=8192).complete(
             model=model,

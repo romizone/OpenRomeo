@@ -8,8 +8,9 @@ source of truth the capability probe and the GUI's pickers read from.
 Deliberately SMALL (owner call, 2026-07-04): current-generation, agent-capable (tool-calling)
 models only. It is not user-editable — users can still add any custom model string, which
 falls back to the conservative heuristics in ``capabilities.py`` at their own risk of
-degraded results. Ids verified against vendor/reseller catalogs on 2026-07-04; refresh the
-reseller rows when catalogs rotate (they rename on every model generation).
+degraded results. Ids verified against vendor/reseller catalogs on 2026-07-04; first-party
+and vendor flagship rows re-verified 2026-07-24 (Sonnet 5, Kimi K3, MiniMax M3, Grok 4.5).
+Refresh the reseller rows when catalogs rotate (they rename on every model generation).
 
 Resellers: Together + Fireworks for now. TODO: add Groq and OpenRouter entries here AND their
 descriptors in ``registry.py`` once the current provider surface is tested — deliberately
@@ -56,8 +57,9 @@ MATRIX: dict[str, ModelEntry] = {
     "anthropic:claude-opus-4-8": ModelEntry(
         "Claude Opus 4.8 · Anthropic", _AGENTIC_VISION
     ),
-    "anthropic:claude-sonnet-4-6": ModelEntry(
-        "Claude Sonnet 4.6 · Anthropic", _AGENTIC_VISION
+    # Sonnet 5 (2026-06-30) replaced Sonnet 4.6 as the current mid-tier.
+    "anthropic:claude-sonnet-5": ModelEntry(
+        "Claude Sonnet 5 · Anthropic", _AGENTIC_VISION
     ),
     "anthropic:claude-haiku-4-5": ModelEntry(
         "Claude Haiku 4.5 · Anthropic", _AGENTIC_VISION
@@ -74,10 +76,15 @@ MATRIX: dict[str, ModelEntry] = {
     "zai:glm-5.2": ModelEntry("GLM-5.2 · Z AI"),
     "deepseek:deepseek-v4-flash": ModelEntry("DeepSeek V4 Flash · DeepSeek"),
     "deepseek:deepseek-v4-pro": ModelEntry("DeepSeek V4 Pro · DeepSeek"),
-    "kimi:kimi-k2.6": ModelEntry("Kimi K2.6 · Moonshot"),
-    "minimax:MiniMax-M2.5": ModelEntry("MiniMax M2.5 · MiniMax"),
+    # Kimi K3 (2026-07-16): 2.8T-param flagship, 1M context, tool calls — native API only
+    # until the open weights land (~2026-07-27; the reseller rows below stay K2.x till then).
+    "kimi:kimi-k3": ModelEntry("Kimi K3 · Moonshot"),
+    # MiniMax M3 (2026-06-01): 428B MoE, 1M context. Vision is native upstream but stays
+    # off here per the compat-vendor policy (unprobed via their OpenAI-compatible API).
+    "minimax:MiniMax-M3": ModelEntry("MiniMax M3 · MiniMax"),
     "qwen:qwen3-max": ModelEntry("Qwen3 Max · Alibaba"),
-    "xai:grok-4.3": ModelEntry("Grok 4.3 · xAI"),
+    # Grok 4.5 (2026-07-08) replaced 4.3 as xAI's flagship for code/agentic work.
+    "xai:grok-4.5": ModelEntry("Grok 4.5 · xAI"),
     "mistral:mistral-large-latest": ModelEntry("Mistral Large · Mistral"),
     # -- resellers (their model namespaces, verbatim) -----------------------------
     "together:thinkingmachines/Inkling": ModelEntry("Inkling · via Together"),

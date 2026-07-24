@@ -343,7 +343,7 @@ class AnthropicProvider(ProviderClient):
         self,
         client: Any = None,
         *,
-        default_model: str = "claude-sonnet-4-6",
+        default_model: str = "claude-sonnet-5",
         api_key: Optional[str] = None,
         secrets: Any = None,
         thinking_budget: Optional[int] = None,

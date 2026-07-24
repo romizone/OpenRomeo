@@ -347,10 +347,10 @@ def test_compat_models_route_and_get_tool_capabilities():
     for model in (
         "zai:glm-5.2",
         "deepseek:deepseek-v4-flash",
-        "kimi:kimi-k2.6",
-        "minimax:MiniMax-M2.5",
+        "kimi:kimi-k3",
+        "minimax:MiniMax-M3",
         "qwen:qwen3-max",
-        "xai:grok-4.3",
+        "xai:grok-4.5",
         "mistral:mistral-large-latest",
     ):
         prefix = model.split(":", 1)[0]

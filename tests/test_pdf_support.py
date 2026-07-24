@@ -44,7 +44,7 @@ def test_native_three_have_pdf_capability():
 def test_compat_vendors_lack_pdf_capability():
     for model in (
         "zai:glm-5.2",
-        "kimi:kimi-k2.6",
+        "kimi:kimi-k3",
         "together:zai-org/GLM-5.2",
         "ollama:qwen3",
     ):

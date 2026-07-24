@@ -34,6 +34,7 @@ from .skills import SkillLoader, skill_catalog_text, skill_tools
 from .tools import ToolRegistry
 from .tools.ask import ask_user_tool
 from .tools.directories import request_directory_tool
+from .tools.images import make_image_tool
 from .tools.plan import propose_plan_tool
 from .tools.subagent import explorer_tools
 from .web import make_web_fetch_tool, make_web_search_tool
@@ -99,7 +100,10 @@ def _enabled_connector_tools(secrets: SecretStore) -> tuple[set[str], set[str]]:
 
 
 def _skill_dirs(workspace: Optional[Path]) -> list[Path]:
-    dirs = [state_dir() / "skills"]
+    # Builtin document skills (docx/pptx/pdf) ship inside the package. They are listed
+    # FIRST: SkillLoader lets later dirs win on a name clash, so a user (state-dir) or
+    # workspace skill with the same name overrides the builtin.
+    dirs = [Path(__file__).parent / "skills" / "builtin", state_dir() / "skills"]
     if workspace is not None:
         dirs.append(workspace / ".coworker" / "skills")
     return dirs
@@ -203,6 +207,13 @@ def build_engine(
     # Web search + fetch: research tools for every agent (keyless DuckDuckGo default).
     registry.register(make_web_search_tool(secrets))
     registry.register(make_web_fetch_tool())
+    # Image generation: text prompt → PNG in a writable root, via the user's existing
+    # OpenAI/Gemini key (gpt-image-2 / Nano Banana). Approval-gated — it spends API
+    # credits. Skipped when the session has nowhere to save (pure chat).
+    if ws is not None or root_list:
+        registry.register(
+            make_image_tool(secrets, workspace=ws, roots=root_list or None)
+        )
     # ask_user: the universal human-in-the-loop Q&A primitive (every agent; engine-intercepted).
     if question_asker is not None:
         registry.register(ask_user_tool())

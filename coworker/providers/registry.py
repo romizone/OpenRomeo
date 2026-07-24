@@ -274,7 +274,7 @@ DESCRIPTORS: list[ProviderDescriptor] = [
         "kimi",
         "Kimi (Moonshot AI)",
         base_url="https://api.moonshot.ai/v1",
-        recommended_model="kimi-k2.6",
+        recommended_model="kimi-k3",
         env_key="MOONSHOT_API_KEY",
         endpoint_help="Prefilled with Moonshot's international endpoint. China mainland: https://api.moonshot.cn/v1",
     ),
@@ -282,7 +282,7 @@ DESCRIPTORS: list[ProviderDescriptor] = [
         "minimax",
         "MiniMax",
         base_url="https://api.minimax.io/v1",
-        recommended_model="MiniMax-M2.5",
+        recommended_model="MiniMax-M3",
         env_key="MINIMAX_API_KEY",
     ),
     _compat(
@@ -297,7 +297,7 @@ DESCRIPTORS: list[ProviderDescriptor] = [
         "xai",
         "xAI (Grok)",
         base_url="https://api.x.ai/v1",
-        recommended_model="grok-4.3",
+        recommended_model="grok-4.5",
         env_key="XAI_API_KEY",
     ),
     _compat(
