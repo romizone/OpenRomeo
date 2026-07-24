@@ -1118,7 +1118,7 @@ export function App() {
         {overlay && (
           <div className="titlebar-drag" data-tauri-drag-region>
             <span className="titlebar-brand brand-wordmark">
-              <Icon name="logo" size={13} className="mark" /> OpenRomeo<span className="beta-tag">BETA</span>
+              <Icon name="logo" size={13} className="mark" /> OpenRomeo
             </span>
           </div>
         )}
@@ -1134,7 +1134,7 @@ export function App() {
         </div>
         <div className="boot-text">
           {resumedExisting ? "Restoring your session…" : "Starting OpenRomeo…"}
-          <span className="beta-tag">BETA</span>
+          
         </div>
       </div>
     );
