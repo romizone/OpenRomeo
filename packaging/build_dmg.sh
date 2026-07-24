@@ -44,8 +44,13 @@ GUI="$PLATFORM/surfaces/gui"
 # bundle) — hardcoding the name here broke the first rebranded build (OpenRomeo).
 APP="$(node -p "require('$GUI/src-tauri/tauri.conf.json').productName")"
 VERSION="$(node -p "require('$GUI/src-tauri/tauri.conf.json').version")"
-TRIPLE="$(rustc -vV | sed -n 's/host: //p')"   # e.g. aarch64-apple-darwin
+# Cross-target support: OCW_TARGET_TRIPLE=x86_64-apple-darwin builds the Intel app on an
+# Apple Silicon host. Rust cross-compiles via `--target`; PyInstaller CANNOT cross-compile,
+# so OCW_VENV must then point at a venv whose Python matches the target arch (e.g. a
+# uv-managed x86_64 CPython running under Rosetta). Defaults reproduce the native build.
+TRIPLE="${OCW_TARGET_TRIPLE:-$(rustc -vV | sed -n 's/host: //p')}"   # e.g. aarch64-apple-darwin
 ARCH="${TRIPLE%%-*}"
+VENV="${OCW_VENV:-$PLATFORM/.venv}"
 
 # CI keychain bootstrap: on a fresh runner the Developer ID cert exists only as the
 # APPLE_CERTIFICATE secret (base64 .p12) — import it into a throwaway keychain so the
@@ -71,7 +76,7 @@ if [ -n "${APPLE_CERTIFICATE:-}" ] && [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
 fi
 
 echo "==> [1/5] PyInstaller: bundling openworker-server ($TRIPLE)"
-"$PLATFORM/.venv/bin/pyinstaller" --noconfirm --clean \
+"$VENV/bin/pyinstaller" --noconfirm --clean \
   --distpath "$HERE/dist" --workpath "$HERE/build" "$HERE/openworker-server.spec"
 
 echo "==> [2/5] staging sidecar resources"
@@ -145,12 +150,19 @@ if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
 else
   echo "    WARNING: no updater signing key — building WITHOUT auto-update artifacts (not releasable)."
 fi
+# Explicit --target only when cross-building — it moves the bundle output dir, so the
+# native path stays byte-identical to what CI and older checkouts expect.
+TARGET_ARGS=()
+BUNDLE="$GUI/src-tauri/target/release/bundle"
+if [ -n "${OCW_TARGET_TRIPLE:-}" ]; then
+  TARGET_ARGS=(--target "$TRIPLE")
+  BUNDLE="$GUI/src-tauri/target/$TRIPLE/release/bundle"
+fi
 # ${arr[@]+…} guard: plain "${arr[@]}" on an EMPTY array is an "unbound variable"
 # under set -u on macOS's stock bash 3.2 — hit by keyless (fresh-clone) builds.
-( cd "$GUI" && npm run tauri build -- --bundles app ${UPDATER_OVERLAY[@]+"${UPDATER_OVERLAY[@]}"} )
+( cd "$GUI" && npm run tauri build -- --bundles app ${TARGET_ARGS[@]+"${TARGET_ARGS[@]}"} ${UPDATER_OVERLAY[@]+"${UPDATER_OVERLAY[@]}"} )
 
 echo "==> [4/5] hdiutil: wrapping into .dmg"
-BUNDLE="$GUI/src-tauri/target/release/bundle"
 STAGING="$(mktemp -d)"
 cp -R "$BUNDLE/macos/$APP.app" "$STAGING/"
 ln -s /Applications "$STAGING/Applications"
