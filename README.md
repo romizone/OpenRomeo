@@ -1,22 +1,21 @@
-# OpenWorker
+# OpenRomeo
 
-**[openworker.com](https://openworker.com)** · [Download](#download) · [Issues](https://github.com/andrewyng/openworker/issues)
+> Personal fork of [OpenWorker](https://github.com/andrewyng/openworker) (MIT) with: the
+> latest frontier models (GPT-5.6, Claude Sonnet 5/Fable 5, Gemini 3.6, Kimi K3,
+> MiniMax M3, Grok 4.5 — vision enabled on the multimodal ones), builtin docx / pptx /
+> pdf document skills, and a `generate_image` tool (gpt-image-2 / Gemini Nano Banana 2).
 
-> **Beta** - OpenWorker is in open beta: fully usable, updates itself, and we're actively polishing rough edges. [Issues](https://github.com/andrewyng/openworker/issues) welcome.
-
-**AI that gets your everyday tasks done.** OpenWorker is an open-source AI coworker that lives on your desktop and delivers **finished work**, not just chat: a polished document, a Slack reply with the numbers, an updated calendar, a triaged inbox.
+**AI that gets your everyday tasks done.** OpenRomeo is an open-source AI coworker that lives on your desktop and delivers **finished work**, not just chat: a polished document, a Slack reply with the numbers, an updated calendar, a triaged inbox.
 
 It runs on your machine and doesn't lock you into any model: bring your own API key for OpenAI, Anthropic, Google, or an open-weight provider, or run fully local with Ollama. Your data leaves your machine only through the model and integrations *you* choose.
 
-[![How OpenWorker works](docs/assets/how-it-works.png)](https://openworker.com)
-
 ## Download
 
-[**⬇ macOS (Apple Silicon)**](https://download.openworker.com/mac)
-<sub>macOS 12+ · signed & notarized · auto-updates</sub>
-
-[**⬇ Windows 10/11 (x64)**](https://download.openworker.com/windows)
-<sub>builds are not yet code-signed, so SmartScreen will warn; signing is in progress</sub>
+Installers are produced by this repo's GitHub Actions release workflow
+(macOS Apple Silicon `.dmg`, Windows x64 NSIS/MSI) — see the
+[Releases](https://github.com/romizone/OpenRomeo/releases) page. Local builds are
+unsigned: macOS first launch needs right-click → Open, Windows shows a SmartScreen
+warning.
 
 Open the app, add a model key (or point it at Ollama), and ask for something real.
 

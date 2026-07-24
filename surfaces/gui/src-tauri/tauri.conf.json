@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "OpenWorker",
+  "productName": "OpenRomeo",
   "version": "0.1.6",
-  "identifier": "com.openworker.desktop",
+  "identifier": "com.romizone.openromeo",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -19,7 +19,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "publisher": "OpenWorker",
+    "publisher": "OpenRomeo",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -46,8 +46,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://download.openworker.com/latest.json",
-        "https://github.com/andrewyng/openworker/releases/latest/download/latest.json"
+        "https://github.com/romizone/OpenRomeo/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVCNzEzRjY5OTkzNUNBNjkKUldScHlqV1phVDl4VzBvTnFLLytzaDkzNVd3WWNuUm8yNE95WTBFNnBtcGF1RENxeTRuNVhQeloK",
       "windows": {

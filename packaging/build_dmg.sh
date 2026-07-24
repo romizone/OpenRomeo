@@ -40,8 +40,9 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PLATFORM="$(cd "$HERE/.." && pwd)"
 GUI="$PLATFORM/surfaces/gui"
-APP="OpenWorker"
-# Single source of truth for the version: tauri.conf.json (also stamps the bundle).
+# Single source of truth for the app name + version: tauri.conf.json (also stamps the
+# bundle) — hardcoding the name here broke the first rebranded build (OpenRomeo).
+APP="$(node -p "require('$GUI/src-tauri/tauri.conf.json').productName")"
 VERSION="$(node -p "require('$GUI/src-tauri/tauri.conf.json').version")"
 TRIPLE="$(rustc -vV | sed -n 's/host: //p')"   # e.g. aarch64-apple-darwin
 ARCH="${TRIPLE%%-*}"
