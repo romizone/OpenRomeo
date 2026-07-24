@@ -322,6 +322,11 @@ def test_manager_curated_models(tmp_path, monkeypatch):
             monkeypatch.delenv(d.env_key, raising=False)
     from coworker.server.manager import SessionManager
 
+    # get_settings culls `ollama:*` entries whenever no live Ollama answers (phantom-model
+    # guard, 2026-07-21) — mock liveness so this test exercises add/remove/hide logic
+    # hermetically instead of depending on a daemon running on the test machine.
+    monkeypatch.setattr(SessionManager, "_ollama_alive", lambda self: True)
+
     mgr = SessionManager(data_dir=tmp_path)
     # no provider keys → nothing but the always-selectable default
     assert mgr.get_settings()["models"] == [mgr.model]
