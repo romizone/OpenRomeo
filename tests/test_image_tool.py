@@ -84,6 +84,16 @@ def test_metadata_gates_approval():
     assert "generate_image" in reg.names()
 
 
+def test_risk_classification_via_registry_is_external():
+    """The registry must carry the dunder metadata into classify() — otherwise the
+    unannotated-tool fallback would call this READ and auto-run it without approval."""
+    from coworker.risk import RiskClass, classify
+
+    reg = ToolRegistry()
+    spec = reg.register(make_image_tool(_Secrets(), workspace=None))
+    assert classify("generate_image", spec.metadata) is RiskClass.EXTERNAL
+
+
 def test_engine_wiring_workspace_only(tmp_path):
     engine = build_engine(agent=code_agent(), workspace=tmp_path, provider=_Stub())
     try:

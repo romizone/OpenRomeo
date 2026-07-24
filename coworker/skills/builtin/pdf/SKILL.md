@@ -11,7 +11,7 @@ Two distinct jobs — pick the right tool through `run_shell`:
 - **Generate new PDFs from scratch**: `reportlab` — install on first use.
 
 ```bash
-python3 -c "import reportlab" 2>/dev/null || python3 -m pip install --user reportlab
+python3 -c "import reportlab" 2>/dev/null || python3 -m pip install --user reportlab 2>/dev/null || python3 -m pip install --user --break-system-packages reportlab
 ```
 
 If the source content is a document you are also producing (report, memo), prefer

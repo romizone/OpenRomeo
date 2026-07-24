@@ -10,7 +10,7 @@ Produce real `.pptx` files with the `python-pptx` library, driven through `run_s
 ## Setup (once per machine)
 
 ```bash
-python3 -c "import pptx" 2>/dev/null || python3 -m pip install --user python-pptx
+python3 -c "import pptx" 2>/dev/null || python3 -m pip install --user python-pptx 2>/dev/null || python3 -m pip install --user --break-system-packages python-pptx
 ```
 
 ## Workflow

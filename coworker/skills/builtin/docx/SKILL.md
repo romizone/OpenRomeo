@@ -13,7 +13,7 @@ Never fake a Word file by renaming Markdown or HTML — always generate a proper
 Check the library before first use; install only if missing:
 
 ```bash
-python3 -c "import docx" 2>/dev/null || python3 -m pip install --user python-docx
+python3 -c "import docx" 2>/dev/null || python3 -m pip install --user python-docx 2>/dev/null || python3 -m pip install --user --break-system-packages python-docx
 ```
 
 ## Creating a document
