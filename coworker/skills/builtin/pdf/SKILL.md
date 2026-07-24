@@ -44,9 +44,11 @@ stamp = PdfReader("stamp.pdf").pages[0]
 for page in r.pages:
     page.merge_page(stamp)
 
-# Form fill
+# Form fill (use a FRESH writer — reusing one from an example above fills the wrong page)
+w = PdfWriter()
 w.append("form.pdf")
 w.update_page_form_field_values(w.pages[0], {"Name": "Alice"})
+w.write("filled.pdf")
 
 # Extract text
 text = "\n".join(page.extract_text() or "" for page in r.pages)

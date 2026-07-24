@@ -61,17 +61,10 @@ def _parse_skill(md: Path) -> Skill:
         if end != -1:
             frontmatter = text[3:end]
             body = text[end + 4 :].lstrip("\n")
-            for line in frontmatter.splitlines():
-                if ":" not in line:
-                    continue
-                key, value = line.split(":", 1)
-                key, value = key.strip().lower(), value.strip()
-                if key == "name" and value:
-                    name = value
-                elif key == "description":
-                    description = value
-                elif key in ("allowed-tools", "allowed_tools"):
-                    allowed = [t.strip() for t in value.split(",") if t.strip()]
+            fm = _parse_frontmatter(frontmatter)
+            name = str(fm.get("name") or name)
+            description = str(fm.get("description") or "")
+            allowed = _as_tool_list(fm.get("allowed-tools") or fm.get("allowed_tools"))
     return Skill(
         name=name,
         description=description,
@@ -79,6 +72,38 @@ def _parse_skill(md: Path) -> Skill:
         path=str(md.parent),
         allowed_tools=allowed,
     )
+
+
+def _parse_frontmatter(frontmatter: str) -> dict:
+    """Parse SKILL.md YAML frontmatter. Real YAML (via pyyaml) so folded/blocked
+    descriptions (`description: >` + indented lines) and block-list `allowed-tools`
+    — both common in Claude Desktop / Claude Code skills — are read correctly, not
+    mangled by a line splitter. Falls back to a tolerant line parser if pyyaml is
+    absent or the block isn't a mapping."""
+    try:
+        import yaml
+
+        data = yaml.safe_load(frontmatter)
+        if isinstance(data, dict):
+            return {str(k).strip().lower(): v for k, v in data.items()}
+    except Exception:
+        pass
+    out: dict = {}
+    for line in frontmatter.splitlines():
+        if ":" not in line or line[:1] in (" ", "\t", "-"):
+            continue  # skip continuation/list lines a flat parser can't place
+        key, value = line.split(":", 1)
+        out[key.strip().lower()] = value.strip()
+    return out
+
+
+def _as_tool_list(value) -> list[str]:
+    """Normalize allowed-tools from YAML (a block/flow list) or a comma string."""
+    if isinstance(value, list):
+        return [str(t).strip() for t in value if str(t).strip()]
+    if isinstance(value, str):
+        return [t.strip() for t in value.split(",") if t.strip()]
+    return []
 
 
 def skill_catalog_text(loader: SkillLoader) -> str:

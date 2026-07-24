@@ -63,13 +63,17 @@ OpenRomeo has **no sign-up, no login, and no subscription**. Authentication work
    [Ollama](https://ollama.com) and skip keys entirely. Model usage bills to *your*
    provider account.
 3. **Integrations (optional)** — two paths per connector:
-   - **Manual token paste** — fully local, works for every integration.
+   - **Manual token paste** — fully local, available for almost every integration
+     (monday.com uses a local in-app OAuth flow instead — still no cloud sign-in).
    - **One-click OAuth** — an optional sign-in to the upstream *OpenWorker Cloud*
-     broker that handles OAuth consent for you. Tokens are still stored only on your
-     machine; skipping it entirely is fully supported.
+     broker that handles OAuth consent for you. Long-lived tokens are written only to
+     your machine, though they do pass through the broker during consent and refresh
+     (GitHub instead uses short-lived, cloud-minted tokens). Skipping the broker
+     entirely is fully supported.
 4. **Where credentials live** — locally, in the app's secret store
-   (`~/.config/coworker/` on macOS/Linux, `%APPDATA%\coworker` on Windows). Nothing
-   is sent to an OpenRomeo server — there isn't one.
+   (`~/.config/coworker/` on macOS/Linux, `%APPDATA%\coworker` on Windows). Your
+   conversations and keys never go to an OpenRomeo server — there isn't one. (If you
+   sign in to the broker, it keeps connection metadata and opt-out session telemetry.)
 
 ## 🧩 Skills
 

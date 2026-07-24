@@ -61,6 +61,29 @@ def _make_skill(skills_dir, name, desc, body):
     )
 
 
+def test_skill_frontmatter_parses_yaml_folded_and_block_list(tmp_path):
+    """Claude Desktop / Claude Code skills commonly use folded (`>`) descriptions and
+    YAML block-list allowed-tools — the parser must read real YAML, not split lines."""
+    d = tmp_path / "skills" / "fancy"
+    d.mkdir(parents=True)
+    (d / "SKILL.md").write_text(
+        "---\n"
+        "name: fancy\n"
+        "description: >\n"
+        "  A multi-line description that folds\n"
+        "  across two source lines: with a colon.\n"
+        "allowed-tools:\n"
+        "  - Bash\n"
+        "  - Read\n"
+        "---\n"
+        "Body.",
+        encoding="utf-8",
+    )
+    skill = SkillLoader([tmp_path / "skills"]).get("fancy")
+    assert "folds across two source lines: with a colon." in skill.description
+    assert skill.allowed_tools == ["Bash", "Read"]
+
+
 def test_skill_loader_catalog_and_load(tmp_path):
     skills_dir = tmp_path / "skills"
     _make_skill(
