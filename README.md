@@ -47,8 +47,14 @@ models, builtin document skills, image generation, and a fresh identity.*
 | Windows 10/11 · x64 | [`OpenRomeo-windows-setup.exe`](https://github.com/romizone/OpenRomeo/releases/latest/download/OpenRomeo-windows-setup.exe) | NSIS installer |
 | Windows 10/11 · x64 (MSI) | [`OpenRomeo-windows.msi`](https://github.com/romizone/OpenRomeo/releases/latest/download/OpenRomeo-windows.msi) | For managed installs |
 
-> **Unsigned builds:** on macOS, first launch needs **right‑click → Open**; on Windows,
-> SmartScreen shows a warning — choose **More info → Run anyway**.
+> **Unsigned builds:**
+> - **macOS** shows *"OpenRomeo is damaged and can't be opened"* on downloaded copies
+>   (Gatekeeper quarantine on un‑notarized apps — the app is fine). After dragging it
+>   to Applications, run once in Terminal, then open normally:
+>   ```bash
+>   xattr -dr com.apple.quarantine /Applications/OpenRomeo.app
+>   ```
+> - **Windows** shows a SmartScreen warning — choose **More info → Run anyway**.
 
 Open the app, add a model key (or point it at Ollama), and ask for something real.
 
