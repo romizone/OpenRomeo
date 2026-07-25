@@ -1147,6 +1147,12 @@ class SessionManager:
             ".docx",
             ".doc",
             ".docm",
+            ".xlsm",
+            # OpenDocument: uploads land in the same scratch dir this scans, so without
+            # these an uploaded .odt/.ods/.odp is invisible in the Artifacts rail.
+            ".odt",
+            ".ods",
+            ".odp",
         }
         for path in root.rglob("*"):
             try:
@@ -3040,8 +3046,11 @@ class SessionManager:
             return
         from ..attachments import content_to_text
 
+        # Truncated: a document upload inlines its whole extracted text (up to 40k chars),
+        # and shipping that to the model to get a 60-char title is pure waste — the title
+        # only ever comes from the opening sentences.
         openers = [
-            text
+            text[:2000]
             for m in users
             if (text := content_to_text(m.get("content"), image_placeholder="").strip())
         ][:2]
@@ -3573,9 +3582,19 @@ def _artifact_kind(path: Path) -> str:
         return "image"
     if suffix == ".pdf":
         return "pdf"
-    if suffix in {".xlsx", ".xls"}:
+    if suffix in {".xlsx", ".xls", ".xlsm"}:
         return "sheet"
-    if suffix in {".pptx", ".ppt", ".pptm", ".docx", ".doc", ".docm"}:
+    if suffix in {
+        ".pptx",
+        ".ppt",
+        ".pptm",
+        ".docx",
+        ".doc",
+        ".docm",
+        ".odt",
+        ".ods",
+        ".odp",
+    }:
         return "office"
     if suffix in {".csv", ".tsv"}:
         return "csv"

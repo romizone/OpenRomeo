@@ -149,7 +149,11 @@ def main(argv=None) -> None:
 
     _exit_when_orphaned()
     app = build_app(args.cwd, args.model, args.mode)
-    uvicorn.run(app, host=args.host, port=args.port)
+    # ws_max_size: attachments ride INSIDE the session websocket's user_message frame, and
+    # uvicorn's 16MB default rejects a turn carrying two ~10MB Office/PDF uploads by closing
+    # the socket. The GUI caps each file at 10MB (attach.ts MAX_BYTES) and 8 per message, so
+    # 64MB covers a realistic worst case without inviting an unbounded frame.
+    uvicorn.run(app, host=args.host, port=args.port, ws_max_size=64 * 1024 * 1024)
 
 
 if __name__ == "__main__":

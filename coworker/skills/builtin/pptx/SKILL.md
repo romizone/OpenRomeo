@@ -63,6 +63,14 @@ is complex, native chart objects when the user will edit numbers later.
   Dark text on light background (or the reverse) — check contrast when coloring.
 - Leave whitespace; do not fill every slide edge-to-edge.
 
+## Working with a deck the user uploaded
+
+An uploaded `.pptx`/`.odp` arrives twice: a slide-by-slide text preview inline, and the
+real file on disk — the turn carries `[Attached file saved at: <path>]`. Open that path
+with `python-pptx` to edit or extend the actual deck; rebuilding from the preview throws
+away the user's layout, theme, and images. (`.odp` is not python-pptx readable — convert
+first: `soffice --headless --convert-to pptx <path> --outdir .`)
+
 ## Editing an existing deck
 
 Open with `Presentation("input.pptx")`, mutate shapes/placeholders, save to a NEW file

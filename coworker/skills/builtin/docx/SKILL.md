@@ -56,6 +56,15 @@ Styling rules of thumb:
 - Keep tables narrow (≤ 5 columns) and put explanations in prose, not in cells.
 - For long reports: title page → (optional TOC) → sections with heading levels 1-2.
 
+## Working with a document the user uploaded
+
+An uploaded `.docx`/`.odt` arrives two ways at once: its text is inlined for you to read,
+and the real file is saved to disk — the turn carries `[Attached file saved at: <path>]`.
+Always operate on that path with `python-docx`, never retype the text from the preview:
+the preview drops styling, tables, headers, and images that the real file still has.
+(`.odt` is not python-docx readable — convert first:
+`soffice --headless --convert-to docx <path> --outdir .`)
+
 ## Editing an existing document
 
 `python-docx` round-trips: open, mutate, save-as. Never overwrite the user's original —

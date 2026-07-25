@@ -90,11 +90,23 @@ export function userItemFromContent(content: any): Extract<Item, { kind: "user" 
   // attachments.py — keep the pattern in sync); the bubble shows the attachment itself.
   // Single-line only: a multi-line message that merely opens like a note stays visible.
   const uploadNote = /^\[Attached (?:image|PDF|file) saved at: [^\n]*\]$/;
+  // An office/OpenDocument upload rides as a text part whose first line names it and whose
+  // body is the locally extracted text. Live, App.tsx has the real Attachment and draws a
+  // chip; on reload the raw part would dump the whole extraction (up to 40k chars) into the
+  // bubble — so rebuild the chip from that header instead. Keep in sync with the header
+  // build_user_content writes (attachments.py).
+  const docPart = /^\[Attached document: (.+)\]$/;
   for (const part of content) {
     if (!part || typeof part !== "object") continue;
     if (part.type === "text" && part.text) {
-      if (uploadNote.test(String(part.text))) continue;
-      text.push(String(part.text));
+      const body = String(part.text);
+      if (uploadNote.test(body)) continue;
+      const doc = docPart.exec(body.split("\n", 1)[0]);
+      if (doc) {
+        attachments.push({ kind: "doc", name: doc[1] });
+        continue;
+      }
+      text.push(body);
     } else if (part.type === "image_url") {
       const url = part.image_url?.url;
       if (typeof url === "string" && url.startsWith("data:image/")) {

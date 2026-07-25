@@ -63,7 +63,7 @@ export interface SessionInfo {
 
 // Attachments (images, PDFs, text files) sent with a user message.
 export interface Attachment {
-  kind: "image" | "text" | "pdf";
+  kind: "image" | "text" | "pdf" | "doc";
   name: string;
   mime?: string;
   data_url?: string; // images + PDFs

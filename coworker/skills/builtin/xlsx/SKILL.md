@@ -64,6 +64,14 @@ Spreadsheet rules of thumb:
 - Charts when asked: `openpyxl.chart.BarChart` / `LineChart` / `PieChart` anchored to
   a cell (`ws.add_chart(chart, "F2")`).
 
+## Working with a workbook the user uploaded
+
+An uploaded `.xlsx`/`.ods` arrives twice: a text preview you can read inline, and the real
+file on disk — the turn carries `[Attached file saved at: <path>]`. Open that path with
+`openpyxl` for anything real; the preview is truncated (500 rows/sheet) and carries no
+formulas or formats. (`.ods` is not openpyxl-readable — convert first:
+`soffice --headless --convert-to xlsx <path> --outdir .`)
+
 ## Editing an existing workbook
 
 ```python

@@ -21,6 +21,7 @@ from typing import Any, Optional
 MAX_ATTACHMENTS = 8
 MAX_IMAGE_CHARS = 12_000_000  # data-URL length cap (~8–9 MB decoded); keeps a turn sane
 MAX_PDF_CHARS = 15_000_000  # data-URL length cap (~10 MB decoded, the GUI's pick limit)
+MAX_DOC_CHARS = 15_000_000  # office/OpenDocument uploads, same ~10 MB decoded ceiling
 MAX_TEXT_CHARS = 200_000  # per text file, inlined
 
 # data:image/<subtype> → file extension for saved uploads (persist_attachments).
@@ -44,6 +45,21 @@ def _is_data_image(url: Any) -> bool:
 
 def _is_data_pdf(url: Any) -> bool:
     return isinstance(url, str) and url.startswith("data:application/pdf;base64,")
+
+
+def _is_data_doc(url: Any, name: Any) -> bool:
+    """Office/OpenDocument upload: any base64 data URL whose FILENAME carries a known
+    extension. The extension is authoritative because browsers report these inconsistently
+    (Windows often sends application/octet-stream for .docx), and the data URL's own MIME
+    is attacker-controlled anyway — doc_extract re-validates by actually opening the ZIP."""
+    from .doc_extract import doc_kind
+
+    return (
+        isinstance(url, str)
+        and url.startswith("data:")
+        and ";base64," in url
+        and doc_kind(str(name or "")) is not None
+    )
 
 
 # -- saving uploads to disk -------------------------------------------------------
@@ -119,6 +135,12 @@ def persist_attachments(
             name = _safe_name(a.get("name"), "attachment.pdf")
             if not name.lower().endswith(".pdf"):
                 name += ".pdf"
+        elif kind == "doc":
+            url = a.get("data_url") or ""
+            if not (_is_data_doc(url, a.get("name")) and len(url) <= MAX_DOC_CHARS):
+                continue
+            data = _decode_data_url(url)
+            name = _safe_name(a.get("name"), "attachment.docx")
         elif kind == "text":
             body = str(a.get("text") or "")[:MAX_TEXT_PERSIST_CHARS]
             if not body:
@@ -152,8 +174,8 @@ def build_user_content(
 ) -> Any:
     """Return `str` (no attachments) or a list of OpenAI content-parts (with attachments).
 
-    Each attachment is `{"kind": "image"|"pdf"|"text", "name"?, "data_url"? (image/pdf),
-    "text"? (text)}`.
+    Each attachment is `{"kind": "image"|"pdf"|"doc"|"text", "name"?, "data_url"?
+    (image/pdf/doc), "text"? (text)}`.
     Invalid/oversized attachments are skipped rather than failing the turn.
     """
     text = (text or "").strip()
@@ -192,6 +214,41 @@ def build_user_content(
                 parts.append(
                     {"type": "file", "file": {"filename": name, "file_data": url}}
                 )
+                added += 1
+        elif kind == "doc":
+            # No provider takes .docx/.xlsx/.odt natively, so the model gets locally
+            # extracted text. The file itself is on disk (saved_path), which is what lets
+            # a skill reopen it at full fidelity — say so, or the model assumes the text
+            # IS the document and edits a copy that never existed.
+            url = a.get("data_url") or ""
+            if _is_data_doc(url, a.get("name")) and len(url) <= MAX_DOC_CHARS:
+                from .doc_extract import extract_text
+
+                name = str(a.get("name") or "document")
+                raw = _decode_data_url(url) or b""
+                body = extract_text(raw, name)
+                if saved:
+                    parts.append(
+                        {"type": "text", "text": f"[Attached file saved at: {saved}]"}
+                    )
+                header = f"[Attached document: {name}]"
+                # Without `saved` (no writable root — e.g. a Chat session) the file exists
+                # only as this text. Pointing the model at "the file" would send it hunting
+                # for a path that was never written.
+                if body:
+                    text_part = f"{header}\n{body}"
+                elif saved:
+                    text_part = (
+                        f"{header}\n(no text could be extracted — open the file at the "
+                        f"path above with the matching skill)"
+                    )
+                else:
+                    text_part = (
+                        f"{header}\n(no text could be extracted, and the file was not "
+                        f"saved to disk in this session — ask the user to re-send it in a "
+                        f"session with a workspace folder)"
+                    )
+                parts.append({"type": "text", "text": text_part})
                 added += 1
         elif kind == "text":
             body = str(a.get("text") or "")[:MAX_TEXT_CHARS]

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Attachment } from "../types";
-import { isPdfFile, readFile } from "../attach";
+import { MAX_BYTES, isPdfFile, readFile } from "../attach";
 import { getSettings, inspectPdf } from "../api";
 import { Dropdown, type Option } from "./Dropdown";
 import { Icon } from "./Icon";
@@ -222,7 +222,22 @@ export function Composer(props: Props) {
       }
       accepted.push(file);
     }
-    const read = (await Promise.all(accepted.map(readFile))).filter(Boolean) as Attachment[];
+    // readFile returns null for an unsupported type or an oversized file. It used to drop
+    // those silently, which read as "the app ignored my file" — name the reason instead.
+    const results = await Promise.all(accepted.map(async (f) => [f, await readFile(f)] as const));
+    // One notice for the whole batch: showAttachNotice replaces its predecessor, so a
+    // per-file call would leave only the last rejection visible.
+    const rejected = results.filter(([, a]) => !a).map(([f]) => f);
+    if (rejected.length) {
+      const oversized = rejected.filter((f) => f.size > MAX_BYTES);
+      const names = rejected.map((f) => f.name).join(", ");
+      showAttachNotice(
+        oversized.length === rejected.length
+          ? `${names} skipped — over the ${MAX_BYTES / 1024 / 1024} MB attachment limit`
+          : `${names} skipped — unsupported file type or over ${MAX_BYTES / 1024 / 1024} MB (images, PDFs, Office/OpenDocument, and text files can be attached)`,
+      );
+    }
+    const read = results.map(([, a]) => a).filter(Boolean) as Attachment[];
     const next: Attachment[] = [];
     for (const a of read) {
       if (a.kind === "pdf" && a.data_url) {
@@ -416,6 +431,9 @@ export function Composer(props: Props) {
                 <div className="absolute z-40 bottom-full mb-1 left-0 min-w-[180px] rounded-xl border border-line bg-panel shadow-2xl py-1.5">
                   {attachItem("image", "Photo or image", () => pickFiles("image/*"))}
                   {attachItem("file", "PDF", () => pickFiles("application/pdf,.pdf"))}
+                  {attachItem("file", "Word, Excel, PowerPoint", () =>
+                    pickFiles(".docx,.xlsx,.xlsm,.pptx,.odt,.ods,.odp"),
+                  )}
                   {attachItem(
                     "fileCode",
                     "Other files",
