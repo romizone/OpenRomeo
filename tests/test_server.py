@@ -323,6 +323,86 @@ def test_ws_simple_turn(tmp_path):
         assert "turn_end" in types
 
 
+def test_ws_uploaded_attachment_lands_in_scratch_and_message_notes_path(tmp_path):
+    """An uploaded image is persisted into the session's writable root and the stored
+    user message carries the '[Attached image saved at: …]' note — so document skills
+    (docx/pptx add_picture) have a real path to embed, not just vision input."""
+    import base64 as _b64
+    from pathlib import Path
+
+    client = _client(tmp_path, [_text("got it")])
+    url = "data:image/png;base64," + _b64.b64encode(b"\x89PNG fake").decode()
+    with client.websocket_connect("/ws/session/upload1?agent=cowork") as ws:
+        assert ws.receive_json()["type"] == "ready"
+        ws.send_json(
+            {
+                "type": "user_message",
+                "text": "use this image",
+                "attachments": [
+                    {"kind": "image", "name": "logo.png", "data_url": url}
+                ],
+            }
+        )
+        _drain(ws)
+
+    roots = client.get("/v1/sessions/upload1/roots").json()["roots"]
+    primary = Path(roots[0]["path"])
+    assert (primary / "logo.png").read_bytes() == b"\x89PNG fake"
+
+    messages = client.get("/v1/sessions/upload1/messages").json()["messages"]
+    user = next(m for m in messages if m["role"] == "user")
+    texts = [p.get("text", "") for p in user["content"] if p.get("type") == "text"]
+    assert any(f"[Attached image saved at: {primary / 'logo.png'}]" == t for t in texts)
+
+
+def test_ws_uploads_never_land_in_a_code_sessions_repo(tmp_path):
+    """Review 2026-07-25: a Code session's writable root is the user's own project —
+    an attached screenshot must not appear in their git tree. Scratch-only persistence."""
+    import base64 as _b64
+
+    client = _client(tmp_path, [_text("ok")])
+    url = "data:image/png;base64," + _b64.b64encode(b"\x89PNG fake").decode()
+    before = sorted(p.name for p in tmp_path.iterdir())
+    with client.websocket_connect("/ws/session/code1?agent=code") as ws:
+        assert ws.receive_json()["type"] == "ready"
+        ws.send_json(
+            {
+                "type": "user_message",
+                "text": "what is wrong here?",
+                "attachments": [{"kind": "image", "name": "shot.png", "data_url": url}],
+            }
+        )
+        _drain(ws)
+    assert sorted(p.name for p in tmp_path.iterdir()) == before  # repo untouched
+    # …and the message carries no saved-path note (nothing was written).
+    messages = client.get("/v1/sessions/code1/messages").json()["messages"]
+    user = next(m for m in messages if m["role"] == "user")
+    texts = [p.get("text", "") for p in user["content"] if p.get("type") == "text"]
+    assert not any("saved at:" in t for t in texts)
+
+
+def test_ws_discuss_mode_writes_no_upload_to_disk(tmp_path):
+    """Read-only modes refuse every consequential tool; an upload must not sneak past."""
+    import base64 as _b64
+    from pathlib import Path
+
+    client = _client(tmp_path, [_text("noted")])
+    url = "data:image/png;base64," + _b64.b64encode(b"\x89PNG fake").decode()
+    with client.websocket_connect("/ws/session/disc1?agent=cowork") as ws:
+        assert ws.receive_json()["type"] == "ready"
+        ws.send_json({"type": "set_mode", "mode": "discuss"})
+        ws.send_json(
+            {
+                "type": "user_message",
+                "text": "just thinking out loud",
+                "attachments": [{"kind": "image", "name": "idea.png", "data_url": url}],
+            }
+        )
+        _drain(ws)
+    roots = client.get("/v1/sessions/disc1/roots").json()["roots"]
+    assert not (Path(roots[0]["path"]) / "idea.png").exists()
+
+
 def test_ws_error_persists_notice_and_retry_reruns(tmp_path):
     class FlakyProvider(ProviderClient):
         def __init__(self):

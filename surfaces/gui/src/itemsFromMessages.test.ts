@@ -94,3 +94,16 @@ describe("itemsFromMessages reasoning", () => {
     expect(items[2]).toEqual({ kind: "assistant", text: "", reasoning: "stopped mid-thought" });
   });
 });
+
+describe("userItemFromContent upload notes", () => {
+  it("hides '[Attached … saved at: …]' notes from the bubble; the image still shows", async () => {
+    const { userItemFromContent } = await import("./itemsFromMessages");
+    const item = userItemFromContent([
+      { type: "text", text: "use this image" },
+      { type: "text", text: "[Attached image saved at: /tmp/scratch/foto.png]" },
+      { type: "image_url", image_url: { url: "data:image/png;base64,AAAA" } },
+    ]);
+    expect(item.text).toBe("use this image");
+    expect(item.attachments).toHaveLength(1);
+  });
+});

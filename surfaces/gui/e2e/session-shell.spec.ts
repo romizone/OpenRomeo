@@ -42,7 +42,7 @@ test("facts subtitle: absent on a fresh session, model-only after the first turn
   // and the model is a live PICKER in the composer (fresh sessions choose; nothing is locked yet).
   await expect(page.getByTestId("session-subtitle")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "About this persona" })).toHaveCount(0);
-  await expect(page.locator(".dd").filter({ hasText: "Claude Opus 4.8" })).toBeVisible();
+  await expect(page.getByTestId("model-picker")).toBeVisible();
 
   // First turn → the facts move up to the subtitle; the picker STAYS in the composer
   // (§17 rev 2026-07-22: mid-session model switching shipped, so it remains actionable).
@@ -55,7 +55,7 @@ test("facts subtitle: absent on a fresh session, model-only after the first turn
   // and the subtitle is a plain fact line, not a button to the persona page.
   const sub = page.getByTestId("session-subtitle");
   await expect(sub).toHaveText("Claude Opus 4.8");
-  await expect(page.locator(".dd").filter({ hasText: "Claude Opus 4.8" })).toBeVisible();
+  await expect(page.getByTestId("model-picker")).toBeVisible();
   await sub.click();
   await expect(page.getByRole("button", { name: "Back", exact: true })).toHaveCount(0);
 });

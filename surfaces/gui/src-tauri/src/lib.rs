@@ -748,6 +748,20 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building the OpenWorker desktop app")
         .run(|app, event| {
+            // Dock click with no visible window (macOS fires applicationShouldHandleReopen).
+            // Close-to-tray only HIDES the window, so without this the app stays running with
+            // its dock dot lit and clicking the icon does nothing at all (owner report
+            // 2026-07-26, Apple Silicon). Re-show exactly like the tray's Open item.
+            #[cfg(target_os = "macos")]
+            if let RunEvent::Reopen {
+                has_visible_windows,
+                ..
+            } = &event
+            {
+                if !has_visible_windows {
+                    show_main(app);
+                }
+            }
             // Also on Exit: belt-and-suspenders in case a quit path reaches teardown without
             // a preceding ExitRequested (observed with macOS Cmd+Q under the tray setup).
             if matches!(event, RunEvent::ExitRequested { .. } | RunEvent::Exit) {

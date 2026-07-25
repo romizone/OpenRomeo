@@ -462,7 +462,8 @@ export function Composer(props: Props) {
 
           <span className="ml-auto" />
 
-          {/* model — a quiet chip, now for the session's whole life (§17 rev 2026-07-22:
+          {/* model — a neutral "Model" chip (owner ask 2026-07-25: hide the model name;
+              the menu's ✓ shows the active one), for the session's whole life (§17 rev 2026-07-22:
               mid-session switching shipped, so the picker stays actionable; the topbar
               subtitle still states the current model). */}
           {!dictation?.recording && (needsModel ? (
@@ -476,7 +477,14 @@ export function Composer(props: Props) {
               <span className="model-warn-ico" aria-hidden>⚠</span>
             </button>
           ) : modelsLoaded ? (
-            <Dropdown value={props.model} options={modelOptions} onChange={props.onModelChange} align="right" />
+            <Dropdown
+              value={props.model}
+              options={modelOptions}
+              onChange={props.onModelChange}
+              align="right"
+              triggerLabel="Model"
+              testId="model-picker"
+            />
           ) : (
             <button
               className="pill chip text-faint cursor-default"

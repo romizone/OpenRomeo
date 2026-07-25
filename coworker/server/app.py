@@ -124,7 +124,7 @@ _CONNECT_FAILED_DETAIL = (
     "Close this tab and try again from OpenWorker."
 )
 
-from ..attachments import build_user_content
+from ..attachments import build_user_content, persist_attachments
 from ..engine import ApprovalOutcome
 from ..inbox import VIS_INBOX, VIS_INLINE, args_preview
 from ..permissions import Mode
@@ -1609,6 +1609,24 @@ def create_app(manager: SessionManager) -> FastAPI:
             "iteration_end",
         }
 
+        def _upload_dir() -> Optional[str]:
+            """Where an uploaded file may be written, or None to skip persistence.
+
+            Only the orphan-Cowork *scratch* root qualifies (manager.get_engine labels it;
+            it is provisioned per session and owned by us). A Code session's writable root
+            is the user's own project — writes there would show up in `git status` — and
+            read-only modes must not touch the disk at all.
+            """
+            if engine.permissions.mode in (Mode.DISCUSS, Mode.PLAN):
+                return None
+            roots = getattr(engine, "roots", None) or []
+            primary = roots[0] if roots else None
+            if primary is None or not getattr(primary, "writable", False):
+                return None
+            if getattr(primary, "label", "") != "scratch":
+                return None
+            return str(primary.path)
+
         async def run_turn(content, *, retry: bool = False) -> None:
             manager.mark_running(
                 session_id
@@ -1683,6 +1701,15 @@ def create_app(manager: SessionManager) -> FastAPI:
                     # Session.userMessage), later ones may switch it (notice persisted).
                     await _apply_model(message.get("model"))
                     if text or attachments:
+                        # Uploads also land as real files in the session's scratch dir
+                        # (vision is one-way — without a path on disk, skills like pptx
+                        # can never embed what the user attached). Scratch ONLY: Code
+                        # sessions make the user's repo their writable root, and dropping
+                        # stray uploads into a git tree is not ours to do. Read-only modes
+                        # (discuss/plan) don't touch the disk either.
+                        attachments = await asyncio.to_thread(
+                            persist_attachments, attachments, _upload_dir()
+                        )
                         content = build_user_content(text, attachments)
                         asyncio.create_task(run_turn(content))
         except WebSocketDisconnect:

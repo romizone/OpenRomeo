@@ -37,7 +37,8 @@ test("model picker recovers when settings fetches die during sidecar boot", asyn
     await route.fallback();
   });
   await page.goto("/");
-  await expect(page.locator(".dd").filter({ hasText: "Claude Opus 4.8" })).toBeVisible({
+  // The neutral "Model" chip renders only once the list has loaded (models-loading is gone).
+  await expect(page.getByTestId("model-picker")).toBeVisible({
     timeout: 10_000,
   });
   await expect(page.getByTestId("models-loading")).toHaveCount(0);

@@ -16,9 +16,14 @@ test("mid-session model switch shows the marker and later turns use the new mode
   await expect(page.getByText("Echo: hello there", { exact: false }).first()).toBeVisible();
 
   // The picker is still in the composer after the first turn (the old lock hid it).
-  const picker = page.locator(".dd").filter({ hasText: "Claude Opus 4.8" });
+  // The trigger is a neutral "Model" chip (2026-07-25) — the name lives in the menu only.
+  const picker = page.getByTestId("model-picker");
   await expect(picker).toBeVisible();
-  await picker.locator(".pill").click();
+  await expect(picker).toContainText("Model");
+  await expect(picker).not.toContainText("Claude Opus 4.8");
+  await picker.click();
+  // The open menu still names every model, ✓ on the active one.
+  await expect(page.locator(".dd-item.sel").filter({ hasText: "Claude Opus 4.8" })).toBeVisible();
   await page.locator(".dd-item").filter({ hasText: "GPT-5.5" }).click();
 
   // The switch marker lands in the transcript…

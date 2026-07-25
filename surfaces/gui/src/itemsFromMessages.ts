@@ -86,9 +86,14 @@ export function userItemFromContent(content: any): Extract<Item, { kind: "user" 
 
   const text: string[] = [];
   const attachments: Attachment[] = [];
+  // Saved-path notes ride next to uploaded parts for the MODEL (persist_attachments,
+  // attachments.py — keep the pattern in sync); the bubble shows the attachment itself.
+  // Single-line only: a multi-line message that merely opens like a note stays visible.
+  const uploadNote = /^\[Attached (?:image|PDF|file) saved at: [^\n]*\]$/;
   for (const part of content) {
     if (!part || typeof part !== "object") continue;
     if (part.type === "text" && part.text) {
+      if (uploadNote.test(String(part.text))) continue;
       text.push(String(part.text));
     } else if (part.type === "image_url") {
       const url = part.image_url?.url;
