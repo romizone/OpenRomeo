@@ -92,22 +92,41 @@ class Scheduler:
         if task.id in self._running_ids:  # skip-on-overlap
             logger.info("skipping %s — previous run still going", task.id)
             return None
+        # `task` is the snapshot `store.due()` took at tick time, but this body starts one
+        # loop iteration later — and a run suspended on a parked approval can complete in
+        # between, advancing next_run. Without re-reading, that stale snapshot fires a
+        # SECOND genuine run of a task that is no longer due (flaky-CI hit 2026-07-25:
+        # run_count 2 instead of 1). Manual "run now" doesn't come through here — it has
+        # its own path (manager.prepare_manual_run) — so gating on due-ness is safe.
+        current = self.store.get(task.id)
+        if current is None:
+            logger.info("skipping %s — deleted since the tick", task.id)
+            return None
+        # run_count, not next_run: a weekly cron recomputes to the SAME slot when the run
+        # lands before that weekday, so next_run alone can't tell "already served" apart
+        # from "still due".
+        if current.run_count > task.run_count:
+            logger.info("skipping %s — already ran for this slot", task.id)
+            return None
         self._running_ids.add(task.id)
         try:
-            run = await self.runner(task, trigger)
-        except Exception as exc:
-            logger.exception("task %s run failed", task.id)
-            run = TaskRun(
-                task_id=task.id, status="error", error=str(exc), trigger=trigger
-            )
-            self.store.add_run(run)
+            try:
+                run = await self.runner(task, trigger)
+            except Exception as exc:
+                logger.exception("task %s run failed", task.id)
+                run = TaskRun(
+                    task_id=task.id, status="error", error=str(exc), trigger=trigger
+                )
+                self.store.add_run(run)
+            # advance the task (run_count/last_run) → save recomputes next_run.
+            fresh = self.store.get(task.id)
+            if fresh is not None:
+                fresh.run_count += 1
+                fresh.last_run = run.started_at if run else None
+                fresh.last_status = run.status if run else "error"
+                self.store.save(fresh)
         finally:
+            # Hold the overlap guard until next_run has been advanced, so the guard and the
+            # due-ness re-check above can never disagree about whether this slot is taken.
             self._running_ids.discard(task.id)
-        # advance the task (run_count/last_run) → save recomputes next_run.
-        fresh = self.store.get(task.id)
-        if fresh is not None:
-            fresh.run_count += 1
-            fresh.last_run = run.started_at if run else None
-            fresh.last_status = run.status if run else "error"
-            self.store.save(fresh)
         return run

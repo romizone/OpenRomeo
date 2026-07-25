@@ -4,7 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "coworker"
-version = "0.0.0"
+# Read from coworker.__version__ so the package, the API's reported version, and the
+# installed distribution can never drift apart (they sat at 0.0.0 through 1.0.3).
+dynamic = ["version"]
 description = "Agent coworker platform — provider-agnostic agentic coworker runtime"
 requires-python = ">=3.10"
 dependencies = [
@@ -51,6 +53,9 @@ documents = ["python-docx>=1.1", "python-pptx>=1.0", "reportlab>=4", "openpyxl>=
 openworker = "coworker.cli:main"
 openworker-server = "coworker.server.run:main"
 openworker-connectors = "coworker.connectors.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "coworker.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["."]

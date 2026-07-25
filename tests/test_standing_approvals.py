@@ -412,16 +412,80 @@ async def test_blocked_run_does_not_stall_other_tasks(tmp_path):
             await gate.wait()  # parked approval: suspended until a human answers
         return TaskRun(task_id=task.id, status="ok", trigger=trigger)
 
+    async def wait_for(check, *, timeout: float = 5.0) -> None:
+        """Poll until `check()` — wall-clock sleeps make this flaky on loaded CI."""
+        deadline = asyncio.get_running_loop().time() + timeout
+        while not check():
+            assert asyncio.get_running_loop().time() < deadline, "timed out"
+            await asyncio.sleep(0.01)
+
     sched = Scheduler(store, runner, tick_seconds=0.05)
     sched.start()
-    await asyncio.sleep(0.2)
-    # The quick task completed while the blocked one is still suspended.
-    assert store.get(quick.id).run_count == 1
+    # The quick task completes while the blocked one is still suspended…
+    await wait_for(lambda: store.get(quick.id).run_count == 1)
     assert store.get(blocked.id).run_count == 0
     gate.set()
-    await asyncio.sleep(0.1)
-    assert store.get(blocked.id).run_count == 1
+    await wait_for(lambda: store.get(blocked.id).run_count == 1)
+    # …and stays at exactly one: releasing the overlap guard before the store advanced
+    # next_run used to let a tick in that window spawn a second, genuine run.
+    for _ in range(6):  # several more ticks at 0.05s
+        await asyncio.sleep(0.05)
+        assert store.get(blocked.id).run_count == 1
     await sched.stop()
+
+
+async def test_stale_due_snapshot_does_not_double_run(tmp_path):
+    """A tick hands `run_task` the snapshot `due()` saw; the coroutine body starts a loop
+    iteration later. If the real run finishes in between (a suspended approval landing),
+    the stale snapshot must NOT fire a second run of a slot that is already done.
+
+    Deterministic stand-in for the CI flake (run_count 2 instead of 1, 2026-07-25) — the
+    timing-based test above cannot force this window on an unloaded machine.
+    """
+    store = TaskStore(tmp_path / "auto.db")
+    task = _task(title="daily")
+    store.save(task)
+    store._conn.execute(
+        "UPDATE scheduled_tasks SET next_run=1.0 WHERE id=?", (task.id,)
+    )
+    store._conn.commit()
+    stale = store.due()[0]  # exactly what a tick would carry into run_task
+
+    async def runner(t, trigger):
+        return TaskRun(task_id=t.id, status="ok", trigger=trigger)
+
+    sched = Scheduler(store, runner, tick_seconds=99)  # never ticks on its own
+    assert await sched.run_task(stale, trigger="schedule") is not None
+    assert store.get(task.id).run_count == 1
+    assert store.get(task.id).next_run > 1.0  # slot consumed
+
+    # The straggler from the same tick era: same object, now out of date.
+    assert await sched.run_task(stale, trigger="schedule") is None
+    assert store.get(task.id).run_count == 1
+
+
+async def test_deleted_task_snapshot_is_skipped(tmp_path):
+    """Same staleness window, harsher: the task is gone by the time the body runs."""
+    store = TaskStore(tmp_path / "auto.db")
+    task = _task(title="doomed")
+    store.save(task)
+    store._conn.execute(
+        "UPDATE scheduled_tasks SET next_run=1.0 WHERE id=?", (task.id,)
+    )
+    store._conn.commit()
+    stale = store.due()[0]
+    store.delete(task.id)
+
+    ran = False
+
+    async def runner(t, trigger):
+        nonlocal ran
+        ran = True
+        return TaskRun(task_id=t.id, status="ok", trigger=trigger)
+
+    sched = Scheduler(store, runner, tick_seconds=99)
+    assert await sched.run_task(stale, trigger="schedule") is None
+    assert ran is False
 
 
 # -- engine events: standing_target on the card, the note on the tool card --------

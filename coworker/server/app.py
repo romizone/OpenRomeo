@@ -124,6 +124,7 @@ _CONNECT_FAILED_DETAIL = (
     "Close this tab and try again from OpenWorker."
 )
 
+from .. import __version__
 from ..attachments import build_user_content, persist_attachments
 from ..engine import ApprovalOutcome
 from ..inbox import VIS_INBOX, VIS_INLINE, args_preview
@@ -148,7 +149,8 @@ def create_app(manager: SessionManager) -> FastAPI:
         yield
         await manager.aclose()  # stop gateway + close MCP connections on shutdown
 
-    app = FastAPI(title="coworker", version="0.0.0", lifespan=lifespan)
+    # Real version, so a bug report's /openapi.json points at a release (was pinned "0.0.0").
+    app = FastAPI(title="coworker", version=__version__, lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         # Pinned to the desktop webview + localhost (see _ALLOWED_ORIGIN_RE): stops a random
