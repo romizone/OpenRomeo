@@ -1147,6 +1147,47 @@ export async function getSettings(): Promise<ModelSettings> {
   return res.json();
 }
 
+// --- Skills (SKILL.md folders: builtin + user-installed) ---
+export type SkillInfo = {
+  name: string;
+  description: string;
+  source: "builtin" | "user";
+  deletable: boolean;
+  path?: string | null;
+};
+
+export async function listSkills(): Promise<SkillInfo[]> {
+  const res = await fetch(`${httpBase()}/v1/skills`);
+  return (await res.json()).skills ?? [];
+}
+
+export async function importSkill(
+  path: string,
+): Promise<{ ok: boolean; error?: string; name?: string; skills?: SkillInfo[] }> {
+  const res = await fetch(`${httpBase()}/v1/skills/import`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
+  return res.json();
+}
+
+export async function deleteSkill(
+  name: string,
+): Promise<{ ok: boolean; error?: string; skills?: SkillInfo[] }> {
+  const res = await fetch(`${httpBase()}/v1/skills/delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  return res.json();
+}
+
+export async function revealSkillsFolder(): Promise<{ ok: boolean; error?: string; path?: string }> {
+  const res = await fetch(`${httpBase()}/v1/skills/reveal`, { method: "POST" });
+  return res.json();
+}
+
 export async function setModelKey(
   apiKey: string,
 ): Promise<{ ok: boolean; error?: string; has_key?: boolean; source?: string }> {

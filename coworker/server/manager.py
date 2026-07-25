@@ -3384,13 +3384,111 @@ class SessionManager:
     def list_agents(self) -> list[dict[str, Any]]:
         return _list_agents()
 
+    def _user_skills_dir(self) -> "Path":
+        from pathlib import Path
+
+        return Path(state_dir()) / "skills"
+
     def list_skills(self) -> list[dict[str, Any]]:
         # Same dirs the engine uses (builtin + user state-dir), minus the per-session
-        # workspace overlay — this is the app-level list.
+        # workspace overlay — this is the app-level list. Each entry says where it lives
+        # (builtin vs user) and whether the UI may delete it, so the Skills panel can
+        # render Import / Reveal / Delete correctly.
+        from pathlib import Path
+
         from ..agent import _skill_dirs
 
+        user_dir = self._user_skills_dir().resolve()
         loader = SkillLoader(_skill_dirs(None))
-        return loader.catalog()
+        out: list[dict[str, Any]] = []
+        for entry in loader.catalog():
+            skill = loader.get(entry["name"])
+            path = getattr(skill, "path", None)
+            # A user skill shadows a same-named builtin (dirs are ordered builtin→user in
+            # _skill_dirs, and SkillLoader lets the later dir win), so source is decided by
+            # the resolved path, not the name.
+            is_user = bool(path) and str(Path(path).resolve()).startswith(str(user_dir))
+            out.append(
+                {
+                    **entry,
+                    "path": path,
+                    "source": "user" if is_user else "builtin",
+                    "deletable": is_user,
+                }
+            )
+        return out
+
+    def install_skill(self, source: str) -> dict[str, Any]:
+        """Import a skill from a local folder that contains a SKILL.md (the format the
+        agent already loads). The folder is copied into the user skills dir under the
+        skill's declared name, so it survives updates and can later be revealed/deleted.
+        A same-named existing user skill is replaced (explicit re-import)."""
+        import shutil
+        from pathlib import Path
+
+        from ..skills.base import _parse_skill
+
+        src = Path(source).expanduser()
+        md = src / "SKILL.md" if src.is_dir() else src
+        if md.name != "SKILL.md" or not md.is_file():
+            return {"ok": False, "error": "pick a folder that contains a SKILL.md file"}
+        src_dir = md.parent
+        try:
+            name = _parse_skill(md).name
+        except Exception as exc:
+            return {"ok": False, "error": f"could not read SKILL.md: {exc}"}
+        if not name or "/" in name or "\\" in name or name.startswith("."):
+            return {"ok": False, "error": f"invalid skill name: {name!r}"}
+        dest = self._user_skills_dir() / name
+        if dest.resolve() == src_dir.resolve():
+            return {"ok": False, "error": "that folder is already the installed skill"}
+        try:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if dest.exists():
+                shutil.rmtree(dest)
+            shutil.copytree(src_dir, dest)
+        except OSError as exc:
+            return {"ok": False, "error": str(exc)}
+        return {"ok": True, "name": name, "skills": self.list_skills()}
+
+    def delete_skill(self, name: str) -> dict[str, Any]:
+        """Remove a user-installed skill by name. Builtins are never touched (they don't
+        live in the user dir); deleting a user skill that shadowed a builtin re-exposes
+        the builtin on the next session."""
+        import shutil
+
+        clean = (name or "").strip()
+        if not clean or "/" in clean or "\\" in clean or clean.startswith("."):
+            return {"ok": False, "error": "invalid skill name"}
+        dest = (self._user_skills_dir() / clean).resolve()
+        if not str(dest).startswith(str(self._user_skills_dir().resolve())):
+            return {"ok": False, "error": "invalid skill path"}
+        if not dest.is_dir():
+            return {"ok": False, "error": f"no user skill named {clean!r}"}
+        try:
+            shutil.rmtree(dest)
+        except OSError as exc:
+            return {"ok": False, "error": str(exc)}
+        return {"ok": True, "skills": self.list_skills()}
+
+    def reveal_skills_dir(self) -> dict[str, Any]:
+        """Open the user skills folder in the OS file manager (creating it first) so the
+        user can add/edit SKILL.md folders by hand."""
+        import subprocess
+        import sys
+
+        d = self._user_skills_dir()
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+            if sys.platform == "darwin":
+                subprocess.Popen(["open", str(d)])
+            elif sys.platform == "win32":
+                subprocess.Popen(["explorer", str(d)])
+            else:
+                subprocess.Popen(["xdg-open", str(d)])
+        except OSError as exc:
+            return {"ok": False, "error": str(exc)}
+        return {"ok": True, "path": str(d)}
 
     def list_memory(self) -> list[dict[str, Any]]:
         return [

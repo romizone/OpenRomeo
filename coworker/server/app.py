@@ -485,6 +485,19 @@ def create_app(manager: SessionManager) -> FastAPI:
     def skills() -> dict[str, Any]:
         return {"skills": manager.list_skills()}
 
+    @app.post("/v1/skills/import")
+    def skills_import(body: dict) -> dict[str, Any]:
+        # `path` comes from the app's own folder picker — a local folder holding SKILL.md.
+        return manager.install_skill(str(body.get("path", "")))
+
+    @app.post("/v1/skills/delete")
+    def skills_delete(body: dict) -> dict[str, Any]:
+        return manager.delete_skill(str(body.get("name", "")))
+
+    @app.post("/v1/skills/reveal")
+    def skills_reveal() -> dict[str, Any]:
+        return manager.reveal_skills_dir()
+
     @app.get("/v1/workspaces/recent")
     def recent_workspaces() -> dict[str, Any]:
         return {"workspaces": manager.recent_workspaces()}

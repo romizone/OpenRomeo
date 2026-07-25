@@ -779,3 +779,49 @@ def test_set_provider_persists_extra_fields(tmp_path):
     manager.set_provider("ollama", {"base_url": ""})
     providers = {p["name"]: p for p in manager.get_providers()}
     assert "base_url" not in providers["ollama"]["values"]
+
+
+# -- skills management (Settings ▸ Skills) ---------------------------------------
+
+
+def test_skills_endpoints_import_delete_and_sources(tmp_path, monkeypatch):
+    monkeypatch.setenv("COWORKER_STATE_DIR", str(tmp_path / "state"))
+    client = _client(tmp_path, [])
+
+    # The builtin document suite is listed and marked non-deletable.
+    skills = {s["name"]: s for s in client.get("/v1/skills").json()["skills"]}
+    assert {"docx", "pptx", "xlsx", "pdf"} <= set(skills)
+    assert skills["docx"]["source"] == "builtin" and not skills["docx"]["deletable"]
+
+    # Import a user skill from a local SKILL.md folder.
+    src = tmp_path / "my-skill"
+    src.mkdir()
+    (src / "SKILL.md").write_text(
+        "---\nname: changelog\ndescription: draft changelogs\n---\nBody.",
+        encoding="utf-8",
+    )
+    res = client.post("/v1/skills/import", json={"path": str(src)}).json()
+    assert res["ok"] and res["name"] == "changelog"
+    by = {s["name"]: s for s in res["skills"]}
+    assert by["changelog"]["source"] == "user" and by["changelog"]["deletable"]
+
+    # A folder without SKILL.md is rejected; builtins cannot be deleted.
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert client.post("/v1/skills/import", json={"path": str(empty)}).json()["ok"] is False
+    assert client.post("/v1/skills/delete", json={"name": "docx"}).json()["ok"] is False
+
+    # A user skill may shadow a builtin; deleting it re-exposes the builtin.
+    shadow = tmp_path / "shadow"
+    shadow.mkdir()
+    (shadow / "SKILL.md").write_text(
+        "---\nname: docx\ndescription: my custom docx flow\n---\nMine.", encoding="utf-8"
+    )
+    res = client.post("/v1/skills/import", json={"path": str(shadow)}).json()
+    assert {s["name"]: s for s in res["skills"]}["docx"]["source"] == "user"
+    res = client.post("/v1/skills/delete", json={"name": "docx"}).json()
+    assert {s["name"]: s for s in res["skills"]}["docx"]["source"] == "builtin"
+
+    # Deleting the plain user skill works and removes it from the catalog.
+    res = client.post("/v1/skills/delete", json={"name": "changelog"}).json()
+    assert res["ok"] and "changelog" not in {s["name"] for s in res["skills"]}
