@@ -1718,7 +1718,22 @@ def create_app(manager: SessionManager) -> FastAPI:
                         content = await asyncio.to_thread(
                             build_user_content, text, attachments
                         )
-                        asyncio.create_task(run_turn(content))
+                        # A turn already in flight owns the engine's message list. Starting
+                        # a second one here appended a second assistant tool_calls message
+                        # before the first turn's results landed, which every provider
+                        # rejects ("tool_call_ids did not have response messages") — and
+                        # the broken history then re-sends forever, bricking the session
+                        # (owner-hit 2026-07-26, kimi-k3 + a slow run_shell). Steering is
+                        # the mechanism the engine already has for this: the running turn
+                        # picks the message up at its next iteration, in order. It is what
+                        # self-wake and channel delivery have always used when busy.
+                        if manager.is_running(session_id) and engine is not None:
+                            engine.queue_steering(content)
+                            await ws.send_json(
+                                {"type": "steering_queued", "data": {}}
+                            )
+                        else:
+                            asyncio.create_task(run_turn(content))
         except WebSocketDisconnect:
             pass
         finally:

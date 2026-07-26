@@ -148,8 +148,11 @@ class TurnEngine:
             cancel_wait.cancel()
 
     def queue_steering(
-        self, text: str, source: Optional[dict[str, Any]] = None
+        self, text: "str | list", source: Optional[dict[str, Any]] = None
     ) -> None:
+        """Hand a message to the RUNNING turn (picked up at its next iteration) instead of
+        starting a second one. `text` takes the same shapes as `run`'s input — a string, or
+        OpenAI content-parts when the message carries attachments."""
         self._steering.append((text, source))
 
     # -- main loop --------------------------------------------------------------
@@ -899,6 +902,7 @@ class TurnEngine:
             for msg in self.messages
             if msg.get("role") != "notice"
         ]
+        out = _repair_tool_call_pairing(out)
         # PDF attachments (stored as `file` parts) are adapted to the ACTIVE model right
         # here — never in the persisted history — so a mid-session model switch always
         # re-decides: native PDF models get the real document, the rest get the local
@@ -1016,6 +1020,87 @@ def _tool_result_message(tool_call: ToolCall, result: Any) -> dict[str, Any]:
         "content": content,
         "ts": time.time(),
     }
+
+
+def _repair_tool_call_pairing(
+    messages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Guarantee the invariant every provider enforces: an assistant message carrying
+    `tool_calls` is IMMEDIATELY followed by one `tool` message per `tool_call_id`.
+
+    History can violate it two ways, and both brick a session permanently — the bad
+    thread re-rides every later turn, so the provider 400s forever and even Retry can't
+    help (owner-hit 2026-07-26):
+      * **interleaved** — two turns ran concurrently on one engine, so their assistant
+        messages landed back to back and the results arrived afterwards, out of order.
+        Those results exist; they just sit in the wrong place, so they are MOVED into
+        position rather than duplicated.
+      * **orphaned** — a turn was abandoned (crash, kill, cancelled task) between the
+        assistant message and its results. Nothing can recover the output, so a synthetic
+        error result stands in, which is exactly what the stop path writes anyway.
+
+    Repair happens on the outbound copy only: `self.messages` stays the true record of
+    what happened, and durable resume keeps seeing genuinely unanswered trailing calls
+    (`_unanswered_trailing_tool_calls` reads the stored list, not this one).
+    """
+    # Pure-chat threads (no calls AND no results) can't violate anything — skip the work.
+    if not any(
+        m.get("role") == "tool" or (m.get("role") == "assistant" and m.get("tool_calls"))
+        for m in messages
+    ):
+        return messages
+
+    # Results are claimed POSITIONALLY, not by a global id lookup: some vendors reuse
+    # ids across turns (Kimi K3 numbers them `run_shell_12`, and the counter restarts —
+    # the session that exposed this had `todo_write_2` twice). Matching by id alone let
+    # the first call swallow the later call's result and orphan it.
+    pending: dict[str, list[int]] = {}
+    for index, msg in enumerate(messages):
+        if msg.get("role") == "tool" and msg.get("tool_call_id"):
+            pending.setdefault(str(msg["tool_call_id"]), []).append(index)
+
+    out: list[dict[str, Any]] = []
+    claimed: set[int] = set()
+    for index, msg in enumerate(messages):
+        if msg.get("role") == "tool":
+            # A result is emitted only next to the call it answers. One left over here is
+            # a duplicate or a stray, and a `tool` message with no preceding `tool_calls`
+            # is itself a protocol error — drop it.
+            continue
+        out.append(msg)
+        if msg.get("role") != "assistant" or not msg.get("tool_calls"):
+            continue
+        for call in msg["tool_calls"] or []:
+            tid = str((call or {}).get("id") or "")
+            if not tid:
+                continue
+            # The earliest unclaimed result AFTER this call — so back-to-back calls with
+            # the same id each take their own, in order.
+            found = next(
+                (i for i in pending.get(tid, []) if i > index and i not in claimed), None
+            )
+            if found is None:  # tolerate a result stored before its call
+                found = next(
+                    (i for i in pending.get(tid, []) if i not in claimed), None
+                )
+            if found is not None:
+                claimed.add(found)
+                out.append(messages[found])
+                continue
+            name = ((call or {}).get("function") or {}).get("name") or "tool"
+            out.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tid,
+                    "name": name,
+                    "content": json.dumps(
+                        {"error": "no result — the turn ended before this tool finished"}
+                    ),
+                }
+            )
+    # Healthy history is the norm: hand back the SAME list so a well-formed thread costs
+    # nothing beyond the scan (this runs on every turn).
+    return messages if out == messages else out
 
 
 def _tool_error_message(tool_call: ToolCall, reason: str) -> dict[str, Any]:
