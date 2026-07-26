@@ -2756,6 +2756,12 @@ class SessionManager:
             "result. The schedule already exists — do not create or modify any scheduled tasks.\n\n"
             f"{task.instructions}"
         )
+        # A scheduled run owns the engine exactly like a live turn does. Without this the
+        # busy checks everywhere else (the websocket's steering hand-off, deliver_to_session,
+        # _durable_resume) fail OPEN for an automation's session: opening it in the GUI and
+        # typing while it runs started a second turn on the same message list, which is how
+        # a thread ends up with two assistant tool_calls messages and no results between.
+        self.mark_running(run.session_id)
         try:
             async for _event in engine.run(opening):
                 pass
@@ -2767,6 +2773,7 @@ class SessionManager:
         except Exception as exc:
             run.status, run.error = "error", str(exc)
         finally:
+            self.mark_idle(run.session_id)
             run.finished_at = _epoch()
             # Persist the run as a continuable session + keep the live engine for an immediate
             # follow-up; record the run (now carrying its session_id).

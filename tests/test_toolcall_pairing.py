@@ -13,6 +13,7 @@ import json
 import pytest
 
 from coworker.engine import _repair_tool_call_pairing
+from coworker.permissions import Mode
 
 
 def _assistant(*ids: str, name: str = "run_shell") -> dict:
@@ -140,6 +141,66 @@ def test_repair_is_idempotent():
     twice = _repair_tool_call_pairing(once)
     assert [m.get("tool_call_id") for m in twice] == [m.get("tool_call_id") for m in once]
     assert _pairs_ok(twice)
+
+
+@pytest.mark.asyncio
+async def test_cancelled_turn_leaves_no_orphan_in_stored_history(tmp_path):
+    """A cancelled task (app quit, uvicorn shutdown, a GC'd task) unwinds the turn wherever
+    it was parked — typically inside the tool call, after the assistant message landed.
+    The generator's finally must still answer every pending call, or run_turn's own
+    `finally: save` persists a thread no provider accepts."""
+    import asyncio
+
+    from coworker.agents import code_agent
+    from coworker.agent import build_engine
+    from coworker.providers import AssistantTurn, ModelCapabilities, StreamChunk
+    from coworker.providers.base import ToolCall
+
+    started = asyncio.Event()
+
+    def _slow_shell(command: str, timeout: int = 60) -> str:
+        started.set()
+        import time
+
+        time.sleep(30)  # cancelled long before this returns
+        return "never"
+
+    _slow_shell.__name__ = "run_shell"
+
+    class _Provider:
+        def capabilities(self, model):
+            return ModelCapabilities(tools=True, streaming=False)
+
+        def complete(self, **kwargs):
+            return AssistantTurn(
+                text=None,
+                tool_calls=[ToolCall(id="run_shell_13", name="run_shell", arguments={"command": "sleep 30"})],
+            )
+
+        def stream(self, **kwargs):
+            yield StreamChunk(turn=self.complete(**kwargs))
+
+    engine = build_engine(
+        agent=code_agent(), workspace=tmp_path, provider=_Provider(), mode=Mode.AUTO
+    )
+    try:
+        engine.registry.register(_slow_shell)
+
+        async def drive():
+            async for _ in engine.run("go"):
+                pass
+
+        task = asyncio.create_task(drive())
+        await asyncio.wait_for(started.wait(), timeout=10)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+        assert _pairs_ok([m for m in engine.messages if m.get("role") != "notice"])
+        answered = [m for m in engine.messages if m.get("role") == "tool"]
+        assert [m["tool_call_id"] for m in answered] == ["run_shell_13"]
+    finally:
+        engine.executor.close()
 
 
 def test_engine_feed_repairs_a_broken_thread(tmp_path):

@@ -1629,6 +1629,16 @@ def create_app(manager: SessionManager) -> FastAPI:
                 return None
             return str(primary.path)
 
+        # A task created with no surviving reference is documented as collectable
+        # mid-execution — and a turn cancelled between its assistant tool_calls message and
+        # the results is exactly the shape providers reject. Hold each one until it ends.
+        turn_tasks: set[asyncio.Task] = set()
+
+        def _spawn_turn(content, *, retry: bool = False) -> None:
+            task = asyncio.create_task(run_turn(content, retry=retry))
+            turn_tasks.add(task)
+            task.add_done_callback(turn_tasks.discard)
+
         async def run_turn(content, *, retry: bool = False) -> None:
             manager.mark_running(
                 session_id
@@ -1687,7 +1697,7 @@ def create_app(manager: SessionManager) -> FastAPI:
                     # Re-run after a provider error (engine guards on the error-notice
                     # tail, so a stray frame is a no-op that still ends with turn_done).
                     if not manager.is_running(session_id):
-                        asyncio.create_task(run_turn(None, retry=True))
+                        _spawn_turn(None, retry=True)
                 elif kind == "set_mode":
                     try:
                         engine.permissions.mode = Mode(message.get("mode"))
@@ -1733,7 +1743,7 @@ def create_app(manager: SessionManager) -> FastAPI:
                                 {"type": "steering_queued", "data": {}}
                             )
                         else:
-                            asyncio.create_task(run_turn(content))
+                            _spawn_turn(content)
         except WebSocketDisconnect:
             pass
         finally:

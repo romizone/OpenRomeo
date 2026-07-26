@@ -443,6 +443,36 @@ class TurnEngine:
         """Run one assistant turn's tool calls: authorize all of them first (sequentially —
         approval prompts are interactive), then execute. Low-risk calls (reads, searches)
         run concurrently; everything else runs one at a time in call order."""
+        base = len(self.messages)
+        try:
+            async for event in self._run_tool_calls(tool_calls):
+                yield event
+        finally:
+            # Abandonment insurance. The stop path answers every call explicitly, but a
+            # CANCELLED task (uvicorn shutdown, app quit, a task the loop garbage-collected)
+            # or an exception raised by the event CONSUMER unwinds this generator wherever it
+            # was parked — typically inside `await asyncio.to_thread(execute)`, after the
+            # assistant message with tool_calls was appended and before any result. Whatever
+            # runs next (run_turn's own `finally: save`, or a later session load) would then
+            # persist a thread no provider accepts. `finally` on the generator runs on
+            # aclose() too, so this is the one place that always executes.
+            answered = {
+                m.get("tool_call_id")
+                for m in self.messages[base:]
+                if m.get("role") == "tool"
+            }
+            for tool_call in tool_calls:
+                if tool_call.id and tool_call.id not in answered:
+                    self.messages.append(
+                        _tool_error_message(
+                            tool_call, "the turn ended before this tool finished"
+                        )
+                    )
+                    answered.add(tool_call.id)
+
+    async def _run_tool_calls(
+        self, tool_calls: list[ToolCall]
+    ) -> AsyncIterator[Event]:
         cleared: list[ToolCall] = []
         for tool_call in tool_calls:
             if self._cancel.is_set():
