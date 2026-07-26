@@ -24,9 +24,13 @@ def _data_url(data: bytes, mime: str = "application/octet-stream") -> str:
 # -- hand-built archives (no third-party deps needed) ------------------------------
 
 
-def _zip(members: dict[str, str]) -> bytes:
+def _zip(members: dict[str, str], *, compress: bool = False) -> bytes:
+    """`compress=True` mirrors what real writers (and zip bombs) emit — DEFLATE, where a
+    highly repetitive member shrinks ~1000x. The default stays STORED so the small
+    fixtures below are byte-obvious."""
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w") as zf:
+    mode = zipfile.ZIP_DEFLATED if compress else zipfile.ZIP_STORED
+    with zipfile.ZipFile(buf, "w", mode) as zf:
         for name, body in members.items():
             zf.writestr(name, body)
     return buf.getvalue()
@@ -112,6 +116,48 @@ def test_extract_never_raises_on_garbage():
     assert extract_text(_zip({"unexpected.xml": "<a/>"}), "x.docx") == ""
     assert extract_text(b"", "x.docx") == ""
     assert extract_text(_docx_bytes("hi"), "photo.png") == ""  # unknown extension
+
+
+def test_many_member_archive_does_not_accumulate_unboundedly():
+    """Zip-bomb shape: hundreds of highly compressible slides. Reading every member before
+    applying the output cap built a multi-GB heap from a few-MB archive; extraction must
+    stop once the budget is gone."""
+    import tracemalloc
+
+    from coworker.doc_extract import MAX_CHARS
+
+    big = "y" * 400_000
+    members = {
+        f"ppt/slides/slide{n}.xml": f"<sld {A_NS}><a:p><a:r><a:t>{big}</a:t></a:r></a:p></sld>"
+        for n in range(1, 401)
+    }
+    data = _zip(members, compress=True)
+    assert len(data) < 2_000_000  # a small archive on the wire…
+
+    tracemalloc.start()
+    try:
+        text = extract_text(data, "bomb.pptx")
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+
+    assert len(text) <= MAX_CHARS + 200
+    assert peak < 50_000_000, f"peak heap {peak} — members accumulated before the cap"
+
+
+def test_nested_paragraphs_stay_linear():
+    """Nested <w:p> made a walk-then-rewalk pass quadratic (16k nodes ≈ 28s of CPU). The
+    same work must now be near-instant, and grow linearly rather than 4x per doubling."""
+    import time
+
+    def nested(depth: int) -> bytes:
+        body = "<w:p><w:t>x</w:t>" * depth + "</w:p>" * depth
+        return _zip({"word/document.xml": f"<w:document {W_NS}><w:body>{body}</w:body></w:document>"})
+
+    started = time.monotonic()
+    extract_text(nested(8000), "deep.docx")
+    elapsed = time.monotonic() - started
+    assert elapsed < 5.0, f"nested-paragraph extraction took {elapsed:.1f}s"
 
 
 def test_extract_truncates_huge_documents():

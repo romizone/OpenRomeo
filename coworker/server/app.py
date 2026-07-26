@@ -1712,7 +1712,12 @@ def create_app(manager: SessionManager) -> FastAPI:
                         attachments = await asyncio.to_thread(
                             persist_attachments, attachments, _upload_dir()
                         )
-                        content = build_user_content(text, attachments)
+                        # Off-thread too: build_user_content decodes base64 and, for an
+                        # office upload, walks the whole document (doc_extract). On the
+                        # loop that stalls every other session for the duration.
+                        content = await asyncio.to_thread(
+                            build_user_content, text, attachments
+                        )
                         asyncio.create_task(run_turn(content))
         except WebSocketDisconnect:
             pass
