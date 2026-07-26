@@ -9,13 +9,25 @@ import { Icon } from "./Icon";
 // the session's artifact list, App un-hides the rail.
 export const OPEN_ARTIFACT_EVENT = "ocw-open-artifact";
 
+// Markdown escapes spaces and parens in a link target, so `artifact:` hrefs arrive
+// percent-encoded ("Deck%20%28final%29.pptx"). The server accepts either form; the chip
+// shows the readable one. Decoding can throw on a stray "%", hence the fallback.
+function prettyPath(path: string): string {
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path;
+  }
+}
+
 function ArtifactChip({ path, title }: { path: string; title: string }) {
-  const file = path.split("/").pop() || path;
+  const pretty = prettyPath(path);
+  const file = pretty.split("/").pop() || pretty;
   return (
     <button
       className="art-chip"
       data-testid="artifact-chip"
-      title={path}
+      title={pretty}
       onClick={() =>
         window.dispatchEvent(new CustomEvent(OPEN_ARTIFACT_EVENT, { detail: { path } }))
       }

@@ -1194,14 +1194,28 @@ class SessionManager:
         if not workspace:
             return None, "no workspace"
         root = Path(workspace).expanduser().resolve()
-        target = (root / path).expanduser().resolve()
-        try:
-            target.relative_to(root)
-        except ValueError:
-            return None, "path escapes workspace"
-        if not target.is_file():
-            return None, "not found"
-        return target, None
+        # Percent-decoding is a FALLBACK, not the rule: a `[name](artifact:…)` link the
+        # model writes escapes spaces and parens the way markdown expects
+        # ("Deck%20%28final%29.pptx"), so the literal name never matches the file on disk.
+        # The literal is still tried first, since a real filename may legitimately contain
+        # "%20" — decoding unconditionally would break that file instead.
+        from urllib.parse import unquote
+
+        candidates = [path]
+        decoded = unquote(path)
+        if decoded != path:
+            candidates.append(decoded)
+        escaped = False
+        for candidate in candidates:
+            target = (root / candidate).expanduser().resolve()
+            try:
+                target.relative_to(root)
+            except ValueError:
+                escaped = True  # containment is re-checked per candidate: decoding must
+                continue  # never become a way to climb out of the workspace
+            if target.is_file():
+                return target, None
+        return None, "path escapes workspace" if escaped else "not found"
 
     def read_artifact(self, session_id: str, path: str) -> dict[str, Any]:
         target, err = self._artifact_target(session_id, path)

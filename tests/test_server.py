@@ -175,6 +175,48 @@ def test_artifacts_list_and_read_previewable_files(tmp_path):
     assert "<h1>Preview</h1>" in html["content"]
 
 
+def test_artifact_read_accepts_a_percent_encoded_link_target(tmp_path):
+    """`[Deck](artifact:…)` links arrive markdown-escaped, so a filename with spaces and
+    parens reaches the server as "Deck%20%28final%29.pptx" and used to 404 against a file
+    that was sitting right there (owner-hit 2026-07-26)."""
+    name = "Endpoint Standardization - Research Deliverable (Rapi).pptx"
+    (tmp_path / name).write_bytes(b"PK\x03\x04binary")
+    client = _client(tmp_path, [])
+
+    encoded = "Endpoint%20Standardization%20-%20Research%20Deliverable%20%28Rapi%29.pptx"
+    got = client.get(
+        "/v1/sessions/unknown/artifacts/read", params={"path": encoded}
+    ).json()
+    assert got["ok"] is True and got["kind"] == "office"
+
+    plain = client.get(
+        "/v1/sessions/unknown/artifacts/read", params={"path": name}
+    ).json()
+    assert plain["ok"] is True  # the un-encoded form still works
+
+
+def test_artifact_read_prefers_a_literal_percent_in_a_filename(tmp_path):
+    """Decoding is a fallback, never the rule: a file genuinely named with "%20" must win
+    over the decoded interpretation of the same string."""
+    (tmp_path / "raw%20name.md").write_text("literal", encoding="utf-8")
+    (tmp_path / "raw name.md").write_text("decoded", encoding="utf-8")
+    client = _client(tmp_path, [])
+
+    got = client.get(
+        "/v1/sessions/unknown/artifacts/read", params={"path": "raw%20name.md"}
+    ).json()
+    assert got["content"] == "literal"
+
+
+def test_artifact_read_rejects_escape_through_encoding(tmp_path):
+    """Percent-decoding must not become a way out of the workspace."""
+    client = _client(tmp_path, [])
+    got = client.get(
+        "/v1/sessions/unknown/artifacts/read", params={"path": "..%2Foutside.md"}
+    ).json()
+    assert got["ok"] is False
+
+
 def test_artifact_read_rejects_path_escape(tmp_path):
     client = _client(tmp_path, [])
     escaped = client.get(
