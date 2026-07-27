@@ -176,6 +176,48 @@ def test_convert_image_http_url_and_malformed():
     assert blocks[1] == {"type": "text", "text": "[unsupported image attachment]"}
 
 
+def test_convert_unsupported_image_subtype_becomes_placeholder():
+    """SVG (or any media type the API rejects) must degrade to the placeholder text
+    instead of riding through and failing the whole turn with a 400."""
+    _, msgs = convert_messages(
+        [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/svg+xml;base64,PHN2Zz4="},
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/webp;base64,UklGRg=="},
+                    },
+                ],
+            }
+        ]
+    )
+    blocks = msgs[0]["content"]
+    assert blocks[0] == {"type": "text", "text": "[unsupported image attachment]"}
+    assert blocks[1]["source"]["media_type"] == "image/webp"  # webp IS supported
+
+
+def test_convert_normalizes_nonstandard_jpg_media_type():
+    _, msgs = convert_messages(
+        [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/jpg;base64,/9j/4A=="},
+                    }
+                ],
+            }
+        ]
+    )
+    assert msgs[0]["content"][0]["source"]["media_type"] == "image/jpeg"
+
+
 def test_convert_drops_empty_assistant_and_guards_first_user():
     _, msgs = convert_messages(
         [

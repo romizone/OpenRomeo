@@ -123,6 +123,11 @@ _PDF_DATA_URL_RE = re.compile(
     r"^data:application/pdf;base64,(.+)$", re.IGNORECASE | re.DOTALL
 )
 
+# Image media types the Messages API accepts (anything else → 400 invalid_request_error,
+# which would fail the whole turn). Unsupported subtypes fall back to the placeholder text
+# instead. "image/jpg" is nonstandard but common — normalized to "image/jpeg" below.
+_SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+
 
 def resolve_api_key(secrets: Any = None) -> Optional[str]:
     """Resolve the Anthropic API key: env `ANTHROPIC_API_KEY` first, else the SecretStore
@@ -158,11 +163,16 @@ def _image_block(url: str) -> Optional[dict[str, Any]]:
     (attachments.py); plain http(s) URLs map to a url source. Anything else → None."""
     match = _DATA_URL_RE.match(url or "")
     if match:
+        media_type = match.group(1).lower()
+        if media_type == "image/jpg":  # nonstandard alias the API rejects
+            media_type = "image/jpeg"
+        if media_type not in _SUPPORTED_IMAGE_TYPES:
+            return None  # svg, tiff, … — the API would 400 and fail the whole turn
         return {
             "type": "image",
             "source": {
                 "type": "base64",
-                "media_type": match.group(1).lower(),
+                "media_type": media_type,
                 "data": match.group(2),
             },
         }

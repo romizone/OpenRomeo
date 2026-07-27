@@ -221,6 +221,36 @@ def test_convert_non_data_image_url_becomes_placeholder():
     assert contents[0]["parts"] == [{"text": "[unsupported image attachment]"}]
 
 
+def test_convert_unsupported_image_subtype_becomes_placeholder():
+    """SVG (or any MIME type the API rejects) degrades to the placeholder text
+    instead of failing the whole turn with INVALID_ARGUMENT."""
+    _, contents = convert_messages(
+        [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/svg+xml;base64,PHN2Zz4="},
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/webp;base64,UklGRg=="},
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/jpg;base64,/9j/4A=="},
+                    },
+                ],
+            }
+        ]
+    )
+    parts = contents[0]["parts"]
+    assert parts[0] == {"text": "[unsupported image attachment]"}
+    assert parts[1]["inline_data"]["mime_type"] == "image/webp"  # webp IS supported
+    assert parts[2]["inline_data"]["mime_type"] == "image/jpeg"  # jpg alias normalized
+
+
 def test_convert_guards_first_user_and_empty_history():
     _, contents = convert_messages([{"role": "assistant", "content": "hi"}])
     assert contents[0] == {"role": "user", "parts": [{"text": "(continued)"}]}

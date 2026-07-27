@@ -84,6 +84,17 @@ _PDF_DATA_URL_RE = re.compile(
     r"^data:application/pdf;base64,(.+)$", re.IGNORECASE | re.DOTALL
 )
 
+# Image MIME types Gemini accepts as vision input (anything else → INVALID_ARGUMENT,
+# failing the whole turn). Unsupported subtypes fall back to the placeholder text.
+# "image/jpg" is nonstandard but common — normalized to "image/jpeg" below.
+_SUPPORTED_IMAGE_TYPES = {
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/heic",
+    "image/heif",
+}
+
 
 def resolve_api_key(secrets: Any = None) -> Optional[str]:
     """Resolve the Gemini API key: env `GEMINI_API_KEY` (then `GOOGLE_API_KEY`, the SDK's own
@@ -104,9 +115,12 @@ def _image_part(url: str) -> Optional[dict[str, Any]]:
     URLs (attachments.py). Plain http(s) URLs are not fetchable by the API → None."""
     match = _DATA_URL_RE.match(url or "")
     if match:
-        return {
-            "inline_data": {"mime_type": match.group(1).lower(), "data": match.group(2)}
-        }
+        mime_type = match.group(1).lower()
+        if mime_type == "image/jpg":  # nonstandard alias the API rejects
+            mime_type = "image/jpeg"
+        if mime_type not in _SUPPORTED_IMAGE_TYPES:
+            return None  # svg, tiff, … — the API would reject and fail the whole turn
+        return {"inline_data": {"mime_type": mime_type, "data": match.group(2)}}
     return None
 
 
