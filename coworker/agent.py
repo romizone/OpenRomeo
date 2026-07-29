@@ -273,11 +273,17 @@ def build_engine(
         if block:
             instructions = f"{instructions}\n\n{block}"
 
-    skill_loader = SkillLoader(_skill_dirs(ws))
-    registry.register_all(skill_tools(skill_loader))
-    catalog = skill_catalog_text(skill_loader)
-    if catalog:
-        instructions = f"{instructions}\n\n{catalog}"
+    # Skills assume file (and usually shell) access — every builtin one writes a
+    # deliverable. A session with no writable surface at all (OpenChat) gets neither the
+    # catalog nor load_skill: advertising a skill the agent cannot execute just walks the
+    # model into calling tools that don't exist.
+    skill_loader = None
+    if ws is not None or root_list:
+        skill_loader = SkillLoader(_skill_dirs(ws))
+        registry.register_all(skill_tools(skill_loader))
+        catalog = skill_catalog_text(skill_loader)
+        if catalog:
+            instructions = f"{instructions}\n\n{catalog}"
 
     # User-local risk overrides (mainly to relax MCP's conservative default). Empty store →
     # no-op; never written by persona loading (the no-self-grant rule).

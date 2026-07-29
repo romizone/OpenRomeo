@@ -432,7 +432,7 @@ export function Composer(props: Props) {
                   {attachItem("image", "Photo or image", () => pickFiles("image/*"))}
                   {attachItem("file", "PDF", () => pickFiles("application/pdf,.pdf"))}
                   {attachItem("file", "Word, Excel, PowerPoint", () =>
-                    pickFiles(".docx,.xlsx,.xlsm,.pptx,.odt,.ods,.odp"),
+                    pickFiles(".docx,.xlsx,.xlsm,.pptx,.doc,.xls,.ppt,.odt,.ods,.odp"),
                   )}
                   {attachItem(
                     "fileCode",

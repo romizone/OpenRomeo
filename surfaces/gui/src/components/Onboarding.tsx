@@ -350,7 +350,7 @@ export function Onboarding({ onDone }: { onDone: (next?: "work" | "gallery" | "a
                 ✦
               </span>
               <span className="flex-1 min-w-0 text-left">
-                <b className="block text-[13.5px]">Start working with Coworker</b>
+                <b className="block text-[13.5px]">Start working with OpenWorker</b>
                 <span className="text-[12px] text-muted">
                   Open a session and just ask — analyze files, draft, research, build.
                 </span>

@@ -1727,11 +1727,12 @@ class SessionManager:
         }
 
     def _surfaces(self) -> dict[str, bool]:
-        """Which session surfaces are shown in the sidebar. Cowork is always on; Chat and Code
-        are opt-in (default off) so a new user sees Cowork only."""
+        """Which session surfaces are shown in the sidebar. OpenWorker (cowork) is always
+        on and OpenChat ships on by default (direct chat, no workspace); Code stays
+        opt-in. An explicit user toggle always wins over the defaults."""
         return {
             "cowork": True,
-            "chat": bool(self._prefs.get("show_chat", False)),
+            "chat": bool(self._prefs.get("show_chat", True)),
             "code": bool(self._prefs.get("show_code", False)),
         }
 

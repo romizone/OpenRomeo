@@ -7,22 +7,22 @@ export function isProjectScoped(p?: { workspace?: string; family?: string }): bo
   return p?.family === "code";
 }
 
-// Persona naming: the product is "OpenWorker"; the personas are a "Coworker" family — Coworker
-// (general), Code Coworker, Ops Coworker. In lists/chrome we use the SHORT label (Coworker / Code /
-// Ops); the persona detail page uses the FULL family name. Backend names are left untouched (the
-// API + tests keep "OpenWorker" / "Ops Coworker"); this is purely the display layer.
+// Persona naming: the two first-party surfaces are "OpenWorker" (agentic) and "OpenChat"
+// (direct chat); third-party personas stay a "Coworker" family (Ops Coworker, …). In
+// lists/chrome we use the SHORT label; the persona detail page uses the FULL family name.
+// Backend names are left untouched; this is purely the display layer.
 
-// Short label for the sidebar + top bar: "Coworker" / "Code" / "Ops" / "Chat".
+// Short label for the sidebar + top bar: "OpenWorker" / "OpenChat" / "Code" / "Ops".
 export function shortPersonaName(name?: string, id?: string): string {
-  if (id === "cowork") return "Coworker";
+  if (id === "cowork") return "OpenWorker";
   const n = (name || id || "").trim();
   return n.replace(/\s*coworker$/i, "").trim() || n;
 }
 
-// Full family name for the persona detail page: "Coworker" / "Code Coworker" / "Ops Coworker".
-// Chat isn't a coworker — left as-is.
+// Full family name for the persona detail page: "OpenWorker" / "Code Coworker" /
+// "Ops Coworker". OpenChat isn't a coworker — left as-is.
 export function fullPersonaName(name?: string, id?: string): string {
-  if (id === "cowork") return "Coworker";
+  if (id === "cowork") return "OpenWorker";
   const n = (name || id || "").trim();
   if (id === "chat" || !n) return n;
   return /coworker$/i.test(n) ? n : `${n} Coworker`;

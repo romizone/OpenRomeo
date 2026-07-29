@@ -46,7 +46,7 @@ def cowork_tool_factory(context: AgentContext) -> list:
 def cowork_agent() -> Agent:
     return Agent(
         name="cowork",
-        title="Cowork",
+        title="OpenWorker",
         system_prompt=COWORK_INSTRUCTIONS,
         needs_workspace=True,
         tool_factory=cowork_tool_factory,

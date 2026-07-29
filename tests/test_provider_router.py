@@ -475,9 +475,9 @@ def test_surface_visibility(tmp_path, monkeypatch):
     from coworker.server.manager import SessionManager
 
     mgr = SessionManager(data_dir=tmp_path)
-    # default: Cowork only
+    # default: OpenWorker + OpenChat on, Code opt-in
     s = mgr.get_settings()["surfaces"]
-    assert s == {"cowork": True, "chat": False, "code": False}
+    assert s == {"cowork": True, "chat": True, "code": False}
 
     mgr.set_surfaces(chat=True)
     assert mgr.get_settings()["surfaces"]["chat"] is True

@@ -65,6 +65,11 @@ def _odf_bytes(*paragraphs: str) -> bytes:
         ("notes.odt", "odt"),
         ("slides.odp", "odp"),
         ("sheet.ods", "ods"),
+        # Legacy binary formats are accepted and report the OOXML sibling's kind
+        # (extract_text converts them via LibreOffice before walking).
+        ("memo.doc", "docx"),
+        ("deck.PPT", "pptx"),
+        ("ledger.xls", "xlsx"),
         ("photo.png", None),
         ("archive.zip", None),
         ("", None),
@@ -85,6 +90,31 @@ def test_extract_docx_paragraphs():
 def test_extract_odf_paragraphs():
     text = extract_text(_odf_bytes("Hello ODF", "Second line"), "notes.odt")
     assert "Hello ODF" in text and "Second line" in text
+
+
+def test_extract_legacy_doc_via_conversion(monkeypatch):
+    """.doc bytes → LibreOffice (mocked) → the existing .docx walker."""
+    from coworker import doc_extract
+
+    seen: list[str] = []
+
+    def fake_convert(data: bytes, ext: str) -> bytes:
+        seen.append(ext)
+        return _docx_bytes("From the old Word file")
+
+    monkeypatch.setattr(doc_extract, "_convert_legacy", fake_convert)
+    text = extract_text(b"\xd0\xcf\x11\xe0 legacy ole bytes", "memo.doc")
+    assert seen == [".doc"]
+    assert "From the old Word file" in text
+
+
+def test_extract_legacy_without_libreoffice_degrades_to_hint(monkeypatch):
+    from coworker import doc_extract
+
+    monkeypatch.setattr(doc_extract, "_convert_legacy", lambda data, ext: None)
+    text = extract_text(b"\xd0\xcf\x11\xe0", "ledger.xls")
+    assert "LibreOffice" in text  # visible hint, never a silent empty preview
+    assert ".xlsx" in text
 
 
 def test_extract_pptx_orders_slides_numerically():

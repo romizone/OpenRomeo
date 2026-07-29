@@ -31,8 +31,8 @@ import { showPersonas } from "../flags";
 // Session surfaces shown as accordions, in display order. The surfaced personas drive this list
 // (so third-party / Ops personas appear); the hardcoded set is the fallback before personas load.
 const SURFACES: { key: string; label: string; icon: IconName; cls: string }[] = [
-  { key: "cowork", label: "Coworker", icon: "diamond", cls: "ico-cowork" },
-  { key: "chat", label: "Chat", icon: "chat", cls: "ico-chat" },
+  { key: "cowork", label: "OpenWorker", icon: "diamond", cls: "ico-cowork" },
+  { key: "chat", label: "OpenChat", icon: "chat", cls: "ico-chat" },
   { key: "code", label: "Code", icon: "code", cls: "ico-code" },
 ];
 

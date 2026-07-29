@@ -6,6 +6,10 @@ const TEXT_RE =
 // Image files recognized by extension when the OS reports no MIME type (drag-drops of
 // .webp/.svg on macOS sometimes arrive with an empty File.type).
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|bmp|avif|heic|heif|tiff?)$/i;
+// Office/OpenDocument uploads ride as base64 (`kind: "doc"`); the server extracts an
+// inline text preview (doc_extract.py — extension-gated there too, keep both in sync).
+// Legacy binary formats (.doc/.ppt/.xls) are converted server-side via LibreOffice.
+const DOC_EXT_RE = /\.(docx|xlsx|xlsm|pptx|odt|ods|odp|doc|ppt|xls)$/i;
 
 // Image types every provider takes as-is. Everything else (svg, webp, bmp, …) is
 // rasterized to PNG at attach time: SVG is vision input nowhere, and WebP breaks on
@@ -85,8 +89,10 @@ const readAsText = (file: File): Promise<string | null> =>
 export async function readFile(file: File): Promise<Attachment | null> {
   const isImage = file.type.startsWith("image/") || (!file.type && IMAGE_EXT_RE.test(file.name));
   const isPdf = isPdfFile(file);
-  const isText = !isImage && !isPdf && (file.type.startsWith("text/") || TEXT_RE.test(file.name));
-  if ((!isImage && !isPdf && !isText) || file.size > MAX_BYTES) return null;
+  const isDoc = !isImage && !isPdf && DOC_EXT_RE.test(file.name);
+  const isText =
+    !isImage && !isPdf && !isDoc && (file.type.startsWith("text/") || TEXT_RE.test(file.name));
+  if ((!isImage && !isPdf && !isDoc && !isText) || file.size > MAX_BYTES) return null;
 
   if (isImage) {
     const name = file.name || "image";
@@ -106,6 +112,19 @@ export async function readFile(file: File): Promise<Attachment | null> {
     const url = await readAsDataUrl(file);
     return url
       ? { kind: "pdf", name: file.name || "file.pdf", mime: "application/pdf", data_url: url }
+      : null;
+  }
+  if (isDoc) {
+    // The filename extension is what the server trusts (browser MIME for Office files is
+    // unreliable, often application/octet-stream) — keep the original name intact.
+    const url = await readAsDataUrl(file);
+    return url
+      ? {
+          kind: "doc",
+          name: file.name,
+          mime: file.type || "application/octet-stream",
+          data_url: url,
+        }
       : null;
   }
   const text = await readAsText(file);

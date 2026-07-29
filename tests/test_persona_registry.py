@@ -20,30 +20,33 @@ def test_builtins_present(tmp_path):
     assert reg.get("code").manifest is None
 
 
-def test_sidebar_defaults_to_cowork_only(tmp_path):
+def test_sidebar_defaults_to_cowork_and_chat(tmp_path):
     reg = _reg(tmp_path)
     sidebar = reg.sidebar()
     ids = [e["name"] for e in sidebar]
-    # A fresh install offers ONLY the default persona (owner call 2026-07-09);
-    # everything else is opt-in from Settings ▸ Personas.
-    assert ids == ["cowork"]
+    # A fresh install offers OpenWorker (the default persona) plus OpenChat (the
+    # direct-chat surface); everything else is opt-in from Settings ▸ Personas.
+    assert ids == ["cowork", "chat"]
     assert sidebar[0]["default"] is True
     # Enabling adds to the picker (enable implies surface).
     reg.set_enabled("code", True)
     reg.set_enabled("ops", True)
     ids = [e["name"] for e in reg.sidebar()]
     assert ids[0] == "cowork"
-    assert set(ids) == {"cowork", "code", "ops"}
+    assert set(ids) == {"cowork", "chat", "code", "ops"}
 
 
-def test_chat_disabled_by_default_but_resolvable(tmp_path):
+def test_chat_enabled_by_default_and_dismissable(tmp_path):
     reg = _reg(tmp_path)
-    assert reg.is_surfaced("chat") is False  # default-hidden
-    assert reg.is_enabled("chat") is False  # opt-in like every non-default persona
-    assert reg.agent("chat").name == "chat"  # live sessions keep resolving
-    # The user can enable it from the Personas tab (enable implies surface).
-    reg.set_enabled("chat", True)
-    assert "chat" in [e["name"] for e in reg.sidebar()]
+    assert reg.is_surfaced("chat") is True  # OpenChat ships visible
+    assert reg.is_enabled("chat") is True
+    assert reg.get("chat").name == "OpenChat"
+    assert reg.agent("chat").name == "chat"
+    # An explicit user choice still wins: disabling removes it from the picker…
+    reg.set_enabled("chat", False)
+    assert "chat" not in [e["name"] for e in reg.sidebar()]
+    # …while live sessions keep resolving.
+    assert reg.agent("chat").name == "chat"
 
 
 def test_surface_toggle_filters_picker_but_keeps_resolvable(tmp_path):

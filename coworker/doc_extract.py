@@ -18,10 +18,13 @@ window. ElementTree resolves no external entities, so XXE isn't reachable here.
 from __future__ import annotations
 
 import io
+import logging
 import re
 import zipfile
 from typing import Optional
 from xml.etree import ElementTree as ET
+
+logger = logging.getLogger(__name__)
 
 MAX_MEMBER_BYTES = 8_000_000  # per XML member, decompressed
 MAX_CHARS = 40_000  # inline preview ceiling
@@ -37,6 +40,12 @@ MAX_ROWS_PER_SHEET = 500
 OOXML_EXT = {".docx": "docx", ".pptx": "pptx", ".xlsx": "xlsx", ".xlsm": "xlsx"}
 ODF_EXT = {".odt": "odt", ".odp": "odp", ".ods": "ods"}
 DOC_EXT = {**OOXML_EXT, **ODF_EXT}
+# Legacy binary Office (OLE compound files, pre-2007) — not ZIP, so the walkers below
+# can't read them directly. `extract_text` converts them to the OOXML sibling through a
+# headless LibreOffice when one is installed; without it the preview degrades to a
+# visible install hint instead of silence.
+LEGACY_EXT = {".doc": ".docx", ".ppt": ".pptx", ".xls": ".xlsx"}
+SOFFICE_TIMEOUT = 120
 
 # The MIME types browsers report for those extensions (the GUI sends one of these, but a
 # few OSes report application/octet-stream — the extension is the authoritative check).
@@ -56,12 +65,63 @@ _CELL_REF_RE = re.compile(r"^([A-Z]+)")
 
 
 def doc_kind(name: str) -> Optional[str]:
-    """'docx' | 'pptx' | 'xlsx' | 'odt' | 'odp' | 'ods' for a filename, else None."""
+    """'docx' | 'pptx' | 'xlsx' | 'odt' | 'odp' | 'ods' for a filename, else None.
+    Legacy extensions (.doc/.ppt/.xls) report their OOXML sibling's kind — they are
+    accepted as uploads and converted before extraction (`_convert_legacy`)."""
     lowered = (name or "").lower()
     for ext, kind in DOC_EXT.items():
         if lowered.endswith(ext):
             return kind
+    for ext, sibling in LEGACY_EXT.items():
+        if lowered.endswith(ext):
+            return OOXML_EXT[sibling]
     return None
+
+
+def _legacy_ext(name: str) -> Optional[str]:
+    lowered = (name or "").lower()
+    return next((ext for ext in LEGACY_EXT if lowered.endswith(ext)), None)
+
+
+def _convert_legacy(data: bytes, ext: str) -> Optional[bytes]:
+    """.doc/.ppt/.xls bytes → OOXML sibling bytes via headless LibreOffice. None when
+    LibreOffice is missing or the conversion fails — callers degrade to a hint."""
+    import subprocess
+    import tempfile
+    from pathlib import Path
+
+    from .tools.preview import _find_soffice  # lazy: keeps this module light
+
+    soffice = _find_soffice()
+    if not soffice:
+        return None
+    sibling = LEGACY_EXT[ext]
+    try:
+        with tempfile.TemporaryDirectory(prefix="coworker-doc-") as tmp:
+            src = Path(tmp) / f"upload{ext}"
+            src.write_bytes(data)
+            outdir = Path(tmp) / "out"
+            profile = Path(tmp) / "profile"  # throwaway → no desktop-instance clash
+            subprocess.run(
+                [
+                    soffice,
+                    "--headless",
+                    "--norestore",
+                    f"-env:UserInstallation={profile.as_uri()}",
+                    "--convert-to",
+                    sibling.lstrip("."),
+                    "--outdir",
+                    str(outdir),
+                    str(src),
+                ],
+                capture_output=True,
+                timeout=SOFFICE_TIMEOUT,
+            )
+            matches = list(outdir.glob(f"*{sibling}")) if outdir.exists() else []
+            return matches[0].read_bytes() if matches else None
+    except Exception:
+        logger.warning("legacy office conversion failed", exc_info=True)
+        return None
 
 
 def _local(tag: str) -> str:
@@ -323,6 +383,16 @@ def extract_text(data: bytes, name: str) -> str:
     kind = doc_kind(name)
     if not kind or not data:
         return ""
+    legacy = _legacy_ext(name)
+    if legacy:
+        converted = _convert_legacy(data, legacy)
+        if converted is None:
+            return (
+                f"[legacy Office upload ({legacy}) — text preview needs LibreOffice "
+                "installed (libreoffice.org; macOS: `brew install --cask libreoffice`), "
+                f"or re-save the file as {LEGACY_EXT[legacy]}]"
+            )
+        data = converted
     try:
         zf = zipfile.ZipFile(io.BytesIO(data))
     except (zipfile.BadZipFile, OSError, ValueError):

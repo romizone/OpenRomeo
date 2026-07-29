@@ -50,6 +50,9 @@ class PersonaEntry:
     default_surfaced: bool = (
         True  # whether it shows in the picker before any user choice
     )
+    # Whether it ships ENABLED before any user choice. Only the default persona and
+    # OpenChat (the direct-chat surface) start on; everything else is opt-in.
+    default_enabled: bool = False
     _builder: Optional[Callable[[], Agent]] = None
     manifest: Optional[PersonaManifest] = None
 
@@ -101,6 +104,7 @@ class PersonaRegistry:
         tools,
         workspace="deliverable",
         default_surfaced=True,
+        default_enabled=False,
     ) -> None:
         self._entries[id] = PersonaEntry(
             id=id,
@@ -113,16 +117,17 @@ class PersonaRegistry:
             workspace=workspace,
             tools=list(tools),
             default_surfaced=default_surfaced,
+            default_enabled=default_enabled,
             _builder=builder,
         )
 
     def _load_builtin(self, builtin_dir: Optional[str | Path]) -> None:
-        # Core surfaces keep their exact prompts via the existing builders. Cowork (the default)
-        # leads; Chat is hidden from the picker by default (Cowork covers quick Q&A) — recoverable
-        # from the Personas tab.
+        # Core surfaces keep their exact prompts via the existing builders. OpenWorker (the
+        # default, agentic) leads; OpenChat is the direct-chat surface, shipped on by
+        # default alongside it.
         self._register_builder(
             "cowork",
-            "OpenRomeo",
+            "OpenWorker",
             "cowork",
             "Produce a deliverable — research, analysis, scripts",
             cowork_agent,
@@ -144,15 +149,16 @@ class PersonaRegistry:
         )
         self._register_builder(
             "chat",
-            "Chat",
+            "OpenChat",
             "chat",
-            "Quick questions — no workspace",
+            "Direct chat — quick questions, no workspace",
             chat_agent,
             False,
             "knowledge",
             [],
             workspace="none",
-            default_surfaced=False,
+            default_surfaced=True,
+            default_enabled=True,
         )
         # Markdown-backed built-ins (Ops, …) — dogfood the manifest path.
         d = Path(builtin_dir) if builtin_dir else Path(__file__).parent / "builtin"
@@ -219,15 +225,18 @@ class PersonaRegistry:
         return self._entries.get(persona_id)
 
     def is_enabled(self, persona_id: str) -> bool:
-        # No user choice recorded → only the default persona ships enabled (owner call,
-        # 2026-07-09): a fresh install is Coworker-only, everything else is opt-in from
-        # Settings ▸ Personas. Explicit state (either way) always wins.
+        # No user choice recorded → the default persona and default-enabled builtins
+        # (OpenChat) ship on; everything else is opt-in from Settings ▸ Personas.
+        # Explicit state (either way) always wins.
         if persona_id in self._enabled:
             return bool(self._enabled[persona_id])
-        return persona_id == self._default or persona_id == DEFAULT_PERSONA_ID
+        if persona_id == self._default or persona_id == DEFAULT_PERSONA_ID:
+            return True
+        entry = self._entries.get(persona_id)
+        return bool(entry and entry.default_enabled)
 
     def is_surfaced(self, persona_id: str) -> bool:
-        # User choice wins; otherwise the persona's default (Chat defaults hidden).
+        # User choice wins; otherwise the persona's default.
         if persona_id in self._surfaced:
             return self._surfaced[persona_id]
         entry = self._entries.get(persona_id)

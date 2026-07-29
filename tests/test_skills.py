@@ -106,14 +106,20 @@ def test_skill_loader_catalog_and_load(tmp_path):
 # -- builtin document skills (docx / pptx / pdf) ---------------------------------
 
 
-def test_builtin_document_skills_ship_with_every_engine():
-    engine = build_engine(agent=chat_agent(), provider=_Stub())
-    names = {c["name"] for c in engine.skill_loader.catalog()}
-    assert {"docx", "pptx", "xlsx", "pdf"} <= names
-    loaded = engine.registry.execute("load_skill", {"name": "docx"})
-    assert "python-docx" in loaded["instructions"]
-    assert loaded["resources_path"]
-    assert "openpyxl" in engine.registry.execute("load_skill", {"name": "xlsx"})["instructions"]
+def test_builtin_document_skills_ship_with_every_workspace_engine(tmp_path):
+    engine = build_engine(agent=code_agent(), workspace=tmp_path, provider=_Stub())
+    try:
+        names = {c["name"] for c in engine.skill_loader.catalog()}
+        assert {"docx", "pptx", "xlsx", "pdf"} <= names
+        loaded = engine.registry.execute("load_skill", {"name": "docx"})
+        assert "python-docx" in loaded["instructions"]
+        assert loaded["resources_path"]
+        assert (
+            "openpyxl"
+            in engine.registry.execute("load_skill", {"name": "xlsx"})["instructions"]
+        )
+    finally:
+        engine.executor.close()
 
 
 def test_workspace_skill_overrides_builtin(tmp_path):
@@ -132,10 +138,18 @@ def test_workspace_skill_overrides_builtin(tmp_path):
 
 def test_build_engine_chat(tmp_path):
     engine = build_engine(agent=chat_agent(), provider=_Stub())
-    assert "load_skill" in engine.registry.names()
+    # Direct chat has no files/shell — and therefore no skills either: every builtin
+    # skill writes a deliverable, so advertising the catalog would promise tools that
+    # don't exist in this session.
+    assert "load_skill" not in engine.registry.names()
     assert "read_file" not in engine.registry.names()
+    assert engine.skill_loader is None
     assert engine.executor is None
     assert engine.agent_name == "chat"
+    # What it DOES keep: the Claude-Chat-style basics (web + memory arrive via the
+    # manager's memory_store wiring; web tools register unconditionally).
+    assert "web_search" in engine.registry.names()
+    assert "web_fetch" in engine.registry.names()
 
 
 def test_build_engine_code_has_agents_md_and_skills(tmp_path):
