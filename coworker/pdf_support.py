@@ -161,6 +161,48 @@ def _encode_png(
     )
 
 
+def render_pdf_pages(
+    raw: bytes,
+    page_indices: Optional[list[int]] = None,
+    *,
+    scale: float = RASTER_SCALE,
+) -> Optional[tuple[list[str], int]]:
+    """Render PDF pages (0-based `page_indices`; None → first RASTER_MAX_PAGES) to PNG
+    data URLs. → (urls, total page count), or None when rendering isn't possible
+    (pypdfium2 missing or the document is broken). Shared by the attachment fallback
+    below and the `view_file` tool (tools/preview.py)."""
+    try:
+        import pypdfium2
+
+        doc = pypdfium2.PdfDocument(raw)
+        try:
+            total = len(doc)
+            indices = (
+                list(range(min(total, RASTER_MAX_PAGES)))
+                if page_indices is None
+                else [i for i in page_indices if 0 <= i < total]
+            )
+            pages: list[str] = []
+            for index in indices:
+                # rev_byteorder flips pdfium's native BGR(A) to the RGB(A) PNG wants.
+                bitmap = doc[index].render(scale=scale, rev_byteorder=True)
+                png = _encode_png(
+                    bitmap.width,
+                    bitmap.height,
+                    bytes(bitmap.buffer),
+                    bitmap.stride,
+                    bitmap.n_channels,
+                )
+                encoded = base64.b64encode(png).decode("ascii")
+                pages.append(f"data:image/png;base64,{encoded}")
+        finally:
+            doc.close()
+        return (pages, total) if pages else None
+    except Exception:
+        logger.warning("pdf rasterization failed", exc_info=True)
+        return None
+
+
 def rasterize(file_data: str, max_pages: int = RASTER_MAX_PAGES) -> Optional[list[str]]:
     """Each page as a PNG data URL, or None when rendering isn't possible
     (pypdfium2 missing or the document is broken) — callers fall back to text."""
@@ -169,30 +211,8 @@ def rasterize(file_data: str, max_pages: int = RASTER_MAX_PAGES) -> Optional[lis
         raw = _pdf_bytes(file_data)
         if raw is None:
             return None
-        try:
-            import pypdfium2
-
-            doc = pypdfium2.PdfDocument(raw)
-            pages: list[str] = []
-            try:
-                for index in range(min(len(doc), max_pages)):
-                    # rev_byteorder flips pdfium's native BGR(A) to the RGB(A) PNG wants.
-                    bitmap = doc[index].render(scale=RASTER_SCALE, rev_byteorder=True)
-                    png = _encode_png(
-                        bitmap.width,
-                        bitmap.height,
-                        bytes(bitmap.buffer),
-                        bitmap.stride,
-                        bitmap.n_channels,
-                    )
-                    encoded = base64.b64encode(png).decode("ascii")
-                    pages.append(f"data:image/png;base64,{encoded}")
-            finally:
-                doc.close()
-            return pages or None
-        except Exception:
-            logger.warning("pdf rasterization failed", exc_info=True)
-            return None
+        rendered = render_pdf_pages(raw, list(range(max_pages)))
+        return rendered[0] if rendered else None
 
     return _cached((_digest(file_data), f"images:{max_pages}"), compute)
 

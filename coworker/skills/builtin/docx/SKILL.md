@@ -21,8 +21,11 @@ python3 -c "import docx" 2>/dev/null || python3 -m pip install --user python-doc
 1. Write a short Python script (e.g. `make_doc.py`) into the workspace with `write_file`.
 2. Run it with `run_shell`; save the output next to the user's other deliverables in the
    workspace, with a descriptive filename (`Q3-sales-report.docx`, not `output.docx`).
-3. Verify the file exists and is non-trivial (`ls -la`), then tell the user where it is
-   (or hand it over with `send_file` when working from a chat channel).
+3. Verify the file exists and is non-trivial (`ls -la`), and **look at it** with
+   `view_file` (renders pages to images you can see) to catch layout problems —
+   broken tables, orphaned headings, runaway spacing — before handing it over.
+4. Tell the user where it is (or hand it over with `send_file` when working from a
+   chat channel).
 
 Core patterns:
 

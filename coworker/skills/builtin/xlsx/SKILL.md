@@ -19,7 +19,9 @@ python3 -c "import openpyxl" 2>/dev/null || python3 -m pip install --user openpy
 
 1. Write a short Python script into the workspace with `write_file`, run it with `run_shell`.
 2. Save with a descriptive filename (`2026-budget.xlsx`, not `output.xlsx`).
-3. Verify it opens (`openpyxl.load_workbook`) and tell the user where it landed.
+3. Verify it opens (`openpyxl.load_workbook`); for formatted sheets, `view_file`
+   renders the workbook to images you can see — check column widths, number formats,
+   and chart placement visually. Then tell the user where it landed.
 
 Core patterns:
 

@@ -35,6 +35,7 @@ from .tools import ToolRegistry
 from .tools.ask import ask_user_tool
 from .tools.directories import request_directory_tool
 from .tools.images import make_image_tool
+from .tools.preview import make_view_file_tool
 from .tools.plan import propose_plan_tool
 from .tools.subagent import explorer_tools
 from .web import make_web_fetch_tool, make_web_search_tool
@@ -214,6 +215,10 @@ def build_engine(
         registry.register(
             make_image_tool(secrets, workspace=ws, roots=root_list or None)
         )
+        # view_file: render a produced deliverable (pptx/docx/xlsx/pdf/…) to page
+        # images the model can see — the visual-verification half of the deliverable
+        # loop. Local-only (pypdfium2 + optional headless LibreOffice).
+        registry.register(make_view_file_tool(workspace=ws, roots=root_list or None))
     # ask_user: the universal human-in-the-loop Q&A primitive (every agent; engine-intercepted).
     if question_asker is not None:
         registry.register(ask_user_tool())

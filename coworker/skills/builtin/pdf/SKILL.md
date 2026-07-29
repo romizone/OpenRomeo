@@ -18,6 +18,10 @@ If the source content is a document you are also producing (report, memo), prefe
 authoring it as `.docx` (see the `docx` skill) and converting via
 `soffice --headless --convert-to pdf` — layout quality beats hand-drawn reportlab pages.
 
+After producing or transforming a PDF, **look at it** with `view_file` — it renders
+pages to images you can see, so verify layout and page breaks visually before handing
+the file over.
+
 ## Manipulating existing PDFs (pypdf)
 
 ```python

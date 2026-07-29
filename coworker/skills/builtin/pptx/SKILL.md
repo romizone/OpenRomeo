@@ -18,7 +18,10 @@ python3 -c "import pptx" 2>/dev/null || python3 -m pip install --user python-ppt
 1. **Outline first.** Draft the slide list (title + 3-6 bullets each) in your reply and
    sanity-check it against what the user asked for before generating anything.
 2. Write a Python script into the workspace with `write_file`, run it with `run_shell`.
-3. Verify the file exists, then hand it over (path in the workspace, or `send_file`).
+3. **Look at the result** with `view_file` (renders slides to images you can see) and
+   fix anything that's visually off — overflowing text, overlapping shapes, bad
+   contrast — before handing it over.
+4. Hand it over (path in the workspace, or `send_file`).
 
 ## Core patterns
 

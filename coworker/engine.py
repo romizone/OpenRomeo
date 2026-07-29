@@ -85,6 +85,10 @@ class TurnEngine:
         self.max_iterations = max_iterations
         self.model_settings = dict(model_settings or {})
         self.messages: list[dict[str, Any]] = list(messages or [])
+        # Page images produced by view_file during the current tool batch (`_record_result`
+        # lifts them off the result). Flushed as ONE user message after every call in the
+        # batch has its tool result, so tool_call/result adjacency is never broken.
+        self._pending_previews: list[dict[str, Any]] = []
         self.audit_sink = audit_sink
         # Returns an ephemeral `<system-context>` block appended to the LAST user message at
         # send-time only (never persisted). We can't reliably inject system messages mid-thread
@@ -469,6 +473,34 @@ class TurnEngine:
                         )
                     )
                     answered.add(tool_call.id)
+            # view_file previews ride AFTER the batch's tool results, as one ordinary
+            # user message with `image_url` parts — the same shape as an attachment, so
+            # every provider conversion and the non-vision placeholder path already
+            # handle it, and the GUI shows the pages as image chips.
+            if self._pending_previews:
+                parts: list[dict[str, Any]] = []
+                for preview in self._pending_previews:
+                    parts.append(
+                        {
+                            "type": "text",
+                            "text": (
+                                f"[{preview['tool']}] Rendered {preview['label']} — "
+                                f"{len(preview['urls'])} page image(s) below."
+                            ),
+                        }
+                    )
+                    parts.extend(
+                        {"type": "image_url", "image_url": {"url": url}}
+                        for url in preview["urls"]
+                    )
+                self._pending_previews = []
+                self.messages.append(
+                    {
+                        "role": "user",
+                        "content": parts,
+                        "source": {"kind": "tool_preview"},
+                    }
+                )
 
     async def _run_tool_calls(
         self, tool_calls: list[ToolCall]
@@ -682,6 +714,24 @@ class TurnEngine:
         if isinstance(result, dict) and "_display" in result:
             display = result.get("_display") or None
             result = {k: v for k, v in result.items() if k != "_display"}
+        # `_view_images` (view_file, tools/preview.py) = rendered pages the model should
+        # SEE, not read as base64 soup. Lifted off the result (also keeps the audit trail
+        # and tool card sane) and flushed as image parts after the batch.
+        if isinstance(result, dict) and "_view_images" in result:
+            urls = [
+                u
+                for u in (result.get("_view_images") or [])
+                if isinstance(u, str) and u.startswith("data:image/")
+            ]
+            if urls:
+                self._pending_previews.append(
+                    {
+                        "tool": tool_call.name,
+                        "label": str(result.get("path") or "file"),
+                        "urls": urls,
+                    }
+                )
+            result = {k: v for k, v in result.items() if k != "_view_images"}
         message = _tool_result_message(tool_call, result)
         if display:
             message["_display"] = display
