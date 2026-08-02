@@ -373,6 +373,13 @@ export function App() {
   // conversation (restores its folder + agent + transcript), else the most recent project
   // folder. Only a true first run (nothing to resume) falls through to the folder gate.
   const resumeLastOrGate = async () => {
+    // The surface the user was last ON, even when that conversation never produced a
+    // server record — an untouched OpenChat leaves none, so sorting server sessions
+    // alone boots the app back onto the default persona ("it moved me to OpenWorker").
+    const locals = readLastSessions();
+    const localLast = Object.entries(locals).sort(
+      (a, b) => (b[1].updatedAt || 0) - (a[1].updatedAt || 0),
+    )[0];
     let loadedSessions: SessionInfo[] = [];
     try {
       loadedSessions = (await getSessions()).filter((s) => s.session_id && !s.session_id.startsWith("__"));
@@ -380,20 +387,41 @@ export function App() {
       const sess = loadedSessions;
       const ts = (s: SessionInfo) => Date.parse(s.updated_at || "") || Number(s.updated_at) || 0;
       const last = [...sess].sort((a, b) => ts(b) - ts(a))[0];
-      if (last) {
+      const resume = async (record: SessionInfo) => {
         setResumedExisting(true);
-        if (last.agent) setAgent(last.agent);
-        if (last.workspace) {
-          setWorkspace(last.workspace);
+        if (record.agent) setAgent(record.agent);
+        if (record.workspace) {
+          setWorkspace(record.workspace);
           setBranch(null);
         }
         try {
-          setItems(itemsFromMessages(await getSessionMessages(last.session_id)));
+          setItems(itemsFromMessages(await getSessionMessages(record.session_id)));
         } catch {
           setItems([]);
         }
-        setSessionId(last.session_id);
+        setSessionId(record.session_id);
         setShowGate(false);
+      };
+      // Prefer the locally-remembered surface when it's fresher than the newest server
+      // session: resume its conversation if one exists, else land there with a fresh
+      // one. Gated surfaces (Code) keep the folder flow below instead.
+      if (localLast && (!last || (localLast[1].updatedAt || 0) > ts(last))) {
+        const [localAgent, remembered] = localLast;
+        const record = sess.find(
+          (s) => s.session_id === remembered.sessionId && s.agent === localAgent,
+        );
+        if (record) {
+          await resume(record);
+          return;
+        }
+        if (!gatesWorkspace(localAgent)) {
+          setAgent(localAgent);
+          setShowGate(false);
+          return;
+        }
+      }
+      if (last) {
+        await resume(last);
         return;
       }
     } catch {
@@ -524,8 +552,11 @@ export function App() {
   }, [agent, surfaces]);
 
   useEffect(() => {
-    if (surface === "session") rememberLastSession(agent, sessionId, workspace);
-  }, [surface, agent, sessionId, workspace]);
+    // Not while booting: the mount-time defaults (cowork + a throwaway session id) would
+    // stamp themselves over the surface the user ACTUALLY left off on, so resume could
+    // never land anywhere but the default persona.
+    if (!booting && surface === "session") rememberLastSession(agent, sessionId, workspace);
+  }, [booting, surface, agent, sessionId, workspace]);
 
   // (re)connect when workspace, session, or agent changes
   useEffect(() => {
