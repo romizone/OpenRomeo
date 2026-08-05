@@ -9,8 +9,9 @@ Run by the release CI job after all platform builds are staged in one directory:
 Looks for the updater artifacts by their STABLE names (the same names release.yml
 uploads):
 
-    OpenWorker-macos-arm64.app.tar.gz(.sig)   -> platforms["darwin-aarch64"]
-    OpenWorker-windows-setup.exe(.sig)        -> platforms["windows-x86_64"]
+    OpenRomeo-macos-arm64.app.tar.gz(.sig)    -> platforms["darwin-aarch64"]
+    OpenRomeo-macos-intel.app.tar.gz(.sig)    -> platforms["darwin-x86_64"]
+    OpenRomeo-windows-setup.exe(.sig)         -> platforms["windows-x86_64"]
 
 URLs point at the TAG-pinned GitHub download path (releases/download/<tag>/<asset>),
 never at `latest/` — a manifest must reference exactly the artifacts it shipped with,
@@ -31,10 +32,13 @@ import json
 import pathlib
 import sys
 
-# stable asset name -> Tauri platform key
+# stable asset name -> Tauri platform key. These MUST match the names release.yml stages
+# ("OpenRomeo-${slug}…"); they still said OpenWorker after the rebrand, which would have
+# skipped every platform as "missing" the first time updater signing was switched on.
 ARTIFACTS = {
-    "OpenWorker-macos-arm64.app.tar.gz": "darwin-aarch64",
-    "OpenWorker-windows-setup.exe": "windows-x86_64",
+    "OpenRomeo-macos-arm64.app.tar.gz": "darwin-aarch64",
+    "OpenRomeo-macos-intel.app.tar.gz": "darwin-x86_64",
+    "OpenRomeo-windows-setup.exe": "windows-x86_64",
 }
 
 
