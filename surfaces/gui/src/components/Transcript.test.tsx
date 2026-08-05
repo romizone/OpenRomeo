@@ -51,7 +51,9 @@ describe("TurnGroup (Transcript §33)", () => {
       { kind: "tool", id: "t1", name: "grep", args: { pattern: "TODO" }, status: "…" },
     ];
     const { container } = render(<Transcript items={items} onApprove={vi.fn()} />);
-    expect(screen.getByText(/Running 1 step…/)).toBeTruthy();
+    // The trailing "…" is now the animated blips element, not literal text.
+    expect(screen.getByText(/Running 1 step/)).toBeTruthy();
+    expect(container.querySelector(".stepgroup-head .blips")).toBeTruthy();
     expect(screen.queryByTestId("turn-narration")).toBeNull(); // collapsed by default
     expect(screen.getByTestId("turn-live-line").textContent).toContain("Looking at the repo");
     fireEvent.click(container.querySelector("summary.stepgroup-head")!);

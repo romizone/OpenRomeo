@@ -31,6 +31,11 @@ class Agent:
     title: str
     system_prompt: str
     needs_workspace: bool = False
+    # A surface that never asks the user for a folder but still needs somewhere to put
+    # files. The manager provisions the same per-conversation scratch directory an orphan
+    # Cowork session gets, so skills (docx/xlsx/pptx/pdf) and the file tools work, while
+    # `needs_workspace=False` keeps the GUI's folder gate off. Chat is the only user today.
+    scratch_workspace: bool = False
     tool_factory: Optional[Callable[[AgentContext], list]] = None
     # Traits that replace the old per-agent-name branching in build_engine / manager.
     # family: "code" gets explorer subagents; "knowledge" gets scheduling / request_directory /

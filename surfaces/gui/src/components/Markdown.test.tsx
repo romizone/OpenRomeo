@@ -36,3 +36,48 @@ describe("Markdown artifact links", () => {
     expect(screen.getByTestId("artifact-chip").textContent).toContain("report.pdf");
   });
 });
+
+// Fenced code gets the Claude-Desktop chrome: a language header, a copy button, and
+// highlight.js tokens colored from our own palette.
+describe("Markdown code blocks", () => {
+  const fence = (lang: string, body: string) => "```" + lang + "\n" + body + "\n```";
+
+  it("labels the language and highlights a known one", () => {
+    const { container } = render(<Markdown text={fence("python", "x = 1")} />);
+    expect(screen.getByTestId("codeblock")).toBeTruthy();
+    expect(container.querySelector(".codeblock-lang")!.textContent).toBe("Python");
+    // hljs emits token spans; the raw source must still read back verbatim.
+    const code = container.querySelector(".codeblock pre code")!;
+    expect(code.querySelector(".hljs-keyword, .hljs-number")).toBeTruthy();
+    expect(code.textContent).toBe("x = 1");
+  });
+
+  it("renders an unknown or absent language as plain text without dropping content", () => {
+    const { container } = render(<Markdown text={fence("", "just words")} />);
+    expect(container.querySelector(".codeblock-lang")!.textContent).toBe("text");
+    expect(container.querySelector(".codeblock pre code")!.textContent).toBe("just words");
+    expect(container.querySelector(".hljs-keyword")).toBeNull();
+  });
+
+  it("copies the block's source, and only claims success once the write lands", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<Markdown text={fence("js", "const a = 1;")} />);
+    fireEvent.click(screen.getByTestId("codeblock-copy"));
+    expect(writeText).toHaveBeenCalledWith("const a = 1;");
+    await screen.findByText("Copied");
+  });
+
+  it("inline code is left alone — no block chrome", () => {
+    const { container } = render(<Markdown text="use `npm run dev` to start" />);
+    expect(screen.queryByTestId("codeblock")).toBeNull();
+    expect(container.querySelector("code")!.textContent).toBe("npm run dev");
+  });
+
+  it("marks streamed content so the block-reveal + caret styles apply", () => {
+    const { container, rerender } = render(<Markdown text="hi" streaming />);
+    expect(container.querySelector(".md.md-stream")).toBeTruthy();
+    rerender(<Markdown text="hi" />);
+    expect(container.querySelector(".md-stream")).toBeNull();
+  });
+});

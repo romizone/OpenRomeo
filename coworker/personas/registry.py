@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from ..agents.base import Agent
-from ..agents.chat import chat_agent
+from ..agents.chat import CHAT_CAPABILITIES, chat_agent
 from ..agents.code import CODE_CAPABILITIES, code_agent
 from ..agents.cowork import COWORK_CAPABILITIES, cowork_agent
 from .manifest import PersonaManifest, load_manifest_file
@@ -151,11 +151,14 @@ class PersonaRegistry:
             "chat",
             "OpenChat",
             "chat",
-            "Direct chat — quick questions, no workspace",
+            "Direct chat — quick questions, and documents when you need one",
             chat_agent,
             False,
             "knowledge",
-            [],
+            # Chat never picks a folder, but it does hold a private scratch dir, so the
+            # capability list has to say so — the persona detail screen derives what it can
+            # do (and its risk classes) from exactly this list.
+            CHAT_CAPABILITIES,
             workspace="none",
             default_surfaced=True,
             default_enabled=True,

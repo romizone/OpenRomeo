@@ -153,9 +153,11 @@ def build_engine(
         root_list = []
 
     config = load_config(ws)
-    executor = (
-        LocalExecutor(cwd=ws) if (agent.needs_workspace and ws is not None) else None
-    )
+    # Scratch-workspace surfaces (Chat) get a shell too — the document skills drive
+    # python-docx/openpyxl through it. Without a workspace they degrade to pure chat:
+    # `expand` skips every capability whose context is missing.
+    wants_files = agent.needs_workspace or agent.scratch_workspace
+    executor = LocalExecutor(cwd=ws) if (wants_files and ws is not None) else None
     todo = TodoList()
     context = AgentContext(
         workspace=ws, executor=executor, todo=todo, roots=root_list or None

@@ -23,6 +23,20 @@ def _isolated_state_dir(tmp_path, monkeypatch):
     monkeypatch.setenv("COWORKER_STATE_DIR", str(tmp_path / "coworker-state"))
 
 
+@pytest.fixture(autouse=True)
+def _isolated_scratch_base(tmp_path, monkeypatch):
+    """…and an isolated scratch base. Orphan knowledge sessions auto-provision a scratch dir
+    from this, so without the override every such test littered the developer's real
+    ~/OpenWorker with per-session junk folders (dozens of them, found 2026-08-05 while giving
+    Chat a scratch workspace). Tests that assert the shipped default compare against
+    SessionManager.DEFAULT_SCRATCH_BASE rather than the literal."""
+    from coworker.server.manager import SessionManager
+
+    monkeypatch.setattr(
+        SessionManager, "DEFAULT_SCRATCH_BASE", str(tmp_path / "scratch-base")
+    )
+
+
 @pytest_asyncio.fixture
 async def fake_slack(monkeypatch):
     """A running FakeSlack control object; `SLACK_API_URL` is set to it for the test's duration."""

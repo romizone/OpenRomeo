@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -686,7 +688,11 @@ def test_ws_with_workspace_query(tmp_path):
         assert "turn_end" in _drain(ws)
 
 
-def test_ws_chat_agent_needs_no_workspace(tmp_path):
+def test_ws_chat_agent_gets_a_scratch_workspace_without_a_folder_gate(tmp_path):
+    """Chat never asks for a folder, but it is not workspace-less: it auto-provisions the
+    same per-conversation scratch dir an orphan Cowork session gets, so the document skills
+    have somewhere to write. The GUI still shows no gate — that's driven by
+    needs_workspace/_workspace_kind, which stay 'none'."""
     manager = SessionManager(
         workspace=None,
         data_dir=tmp_path,
@@ -697,9 +703,15 @@ def test_ws_chat_agent_needs_no_workspace(tmp_path):
         ready = ws.receive_json()
         assert ready["type"] == "ready"
         assert ready["data"]["agent"] == "chat"
-        assert ready["data"]["workspace"] is None
+        scratch = ready["data"]["workspace"]
+        assert scratch and Path(scratch).is_dir()
+        assert Path(scratch).name == "chat1"
         ws.send_json({"type": "user_message", "text": "hello"})
         assert "turn_end" in _drain(ws)
+
+    # ...and the scratch dir never surfaces as a re-openable "project".
+    assert all(w["path"] != scratch for w in manager.recent_workspaces())
+    assert manager._workspace_kind(manager.personas.get("chat")) == "none"
 
 
 def test_ws_set_mode_auto_skips_approval(tmp_path):

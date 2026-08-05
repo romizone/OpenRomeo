@@ -36,9 +36,9 @@ import { InboxItemCard } from "./components/InboxItemCard";
 import { isTauri, platformOS, startWindowDrag } from "./tauri";
 import { Icon } from "./components/Icon";
 import { Sidebar } from "./components/Sidebar";
-import { ThinkingBlock, Transcript } from "./components/Transcript";
+import { Blips, ThinkingBlock, Transcript } from "./components/Transcript";
 import { Composer } from "./components/Composer";
-import { Markdown } from "./components/Markdown";
+import { StreamingMarkdown } from "./components/Markdown";
 import { SearchModal } from "./components/SearchModal";
 import { SessionIntro } from "./components/SessionIntro";
 import { FolderGate } from "./components/FolderGate";
@@ -263,7 +263,7 @@ export function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [toggleNav]);
-  // Count of files this Cowork conversation has produced — surfaces an "Artifacts (N)" button in
+  // Count of files this conversation has produced — surfaces an "Artifacts (N)" button in
   // the topbar when the side panel is hidden, so produced files are never buried.
   const [artifactCount, setArtifactCount] = useState(0);
   // §32 deep link into the rail's Access section (the former Session-settings drawer): bumping
@@ -280,6 +280,15 @@ export function App() {
     window.addEventListener("ocw-open-artifact", show);
     return () => window.removeEventListener("ocw-open-artifact", show);
   }, []);
+  // Chat produces deliverables now (it runs on a private scratch dir), so it gets the rail
+  // like every other surface — but it OPENS with the rail hidden, because a direct-chat
+  // column with an empty panel bolted to it reads as clutter. The user reaches it the same
+  // three ways Cowork does: the topbar Artifacts button, the panel toggle, or an artifact
+  // chip. Switching surfaces re-applies that per-surface default; the toggle still wins
+  // within a surface.
+  useEffect(() => {
+    setRailHidden(agent === "chat");
+  }, [agent]);
   // The command-palette search, openable from the collapsed-sidebar topbar cluster (§22). The
   // expanded sidebar owns its own instance; this one exists so search never disappears with it.
   const [searchOpen, setSearchOpen] = useState(false);
@@ -293,6 +302,11 @@ export function App() {
     getPersonas().then(setPersonas).catch(() => {});
   }, []);
   const personaOf = (a: string) => personas?.find((p) => p.id === a);
+  // Surfaces whose deliverables land in a scratch dir the user never picked — they get the
+  // rail's Artifacts section and the topbar count, because a file the user can't find is a
+  // file they didn't get. Code-family personas work in a real repo the user already has open,
+  // so they keep the reserved "Files" slot instead.
+  const producesArtifacts = agent === "cowork" || agent === "chat";
 
   // Pending Inbox items for the ACTIVE session — surfaced inline above the composer so an
   // unattended session's blocking question/approval can be answered in context (resolving the
@@ -1333,7 +1347,7 @@ export function App() {
           onOpenIntegrations={() => setSurface("integrations")}
         />
       ) : (
-      <div className={"main" + (surface === "session" && agent !== "chat" && !railHidden ? " rail-open" : "")}>
+      <div className={"main" + (surface === "session" && !railHidden ? " rail-open" : "")}>
         <div className="main-topbar">
           {/* Left: the contextual cluster — [sidebar] [+ new session] [search] — rendered ONLY
               while the sidebar is collapsed (§22; the expanded sidebar already owns those
@@ -1396,7 +1410,7 @@ export function App() {
           {/* Right: session-settings icon (§23) + panel toggle. Model/mode/persona chrome is
               gone — the facts live in the subtitle, the controls in the composer (§22). */}
           <div className="main-topbar-side main-topbar-actions" onPointerDown={beginWindowDrag}>
-            {agent === "cowork" && railHidden && artifactCount > 0 && (
+            {producesArtifacts && railHidden && artifactCount > 0 && (
               <button
                 className="topbar-artifacts-btn"
                 onMouseDown={(e) => e.stopPropagation()}
@@ -1408,19 +1422,19 @@ export function App() {
                 <span className="topbar-artifacts-count">{artifactCount}</span>
               </button>
             )}
-            {/* §32: the panel toggle is the ONE session-panel entry, for every non-chat persona
-                (the rail now carries Access, so code-family gets it too). */}
-            {agent !== "chat" && (
-              <button
-                className="topbar-icon-btn"
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={() => setRailHidden((h) => !h)}
-                aria-label={railHidden ? "Show side panel" : "Hide side panel"}
-                title={railHidden ? "Show side panel" : "Hide side panel"}
-              >
-                <Icon name="sidebarRight" size={16} />
-              </button>
-            )}
+            {/* §32: the panel toggle is the ONE session-panel entry — now for EVERY persona.
+                Chat used to be excluded because it had no workspace and therefore nothing to
+                put in a panel; it has a scratch dir and artifacts now, so it gets the toggle
+                too (it just opens hidden). */}
+            <button
+              className="topbar-icon-btn"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setRailHidden((h) => !h)}
+              aria-label={railHidden ? "Show side panel" : "Hide side panel"}
+              title={railHidden ? "Show side panel" : "Hide side panel"}
+            >
+              <Icon name="sidebarRight" size={16} />
+            </button>
           </div>
         </div>
         <div className={"main-workspace" + (railHidden ? " rail-hidden" : "")}>
@@ -1510,9 +1524,7 @@ export function App() {
                   {streaming && streamMode(streaming, items, running) === "answer" && (
                     <div className="transcript">
                       <div className="bubble-assistant">
-                        <div className="who">assistant</div>
-                        <Markdown text={streaming} />
-                        <span className="stream-cursor">▍</span>
+                        <StreamingMarkdown text={streaming} />
                       </div>
                     </div>
                   )}
@@ -1600,19 +1612,19 @@ export function App() {
             />
                   </div>
           <RightRail
-            active={surface === "session" && agent !== "chat" && !railHidden}
+            active={surface === "session" && !railHidden}
             sessionId={sessionId}
             refreshKey={browserRefreshKey}
             toolNames={items.filter((i) => i.kind === "tool").map((i: any) => i.name)}
             todo={todo}
             running={running}
             onPreviewChange={onArtifactPreview}
-            showArtifacts={agent === "cowork"}
+            showArtifacts={producesArtifacts}
             personaId={agent}
             projectScoped={isProjectScoped(personaOf(agent))}
             workspace={workspace || undefined}
             branch={branch}
-            scratchPrimary={agent === "cowork"}
+            scratchPrimary={producesArtifacts}
             openAccessKey={accessKey}
             onOpenIntegrations={() => setSurface("integrations")}
           />
@@ -1665,8 +1677,8 @@ function WaitingForAgent() {
   return (
     <div className="waiting-transcript">
       <div className="waiting-row" aria-live="polite">
-        <span className="waiting-spinner" />
-        <span>Waiting for agent...</span>
+        <span className="waiting-shimmer">Working</span>
+        <Blips />
       </div>
     </div>
   );

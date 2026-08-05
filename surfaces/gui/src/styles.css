@@ -43,6 +43,15 @@
   --scrim: rgba(29, 27, 24, 0.32);          /* modal / gate overlays */
   --check-a: #f0f1f3;         /* image-viewer checkerboard */
   --check-b: #fafbfc;
+  /* Syntax tokens for fenced code (highlight.js class names map onto these in the .hljs-*
+     rules). Kept here, not in an hljs theme file, so dark mode overrides them like anything
+     else — a shipped theme hardcodes one mode and wrecks the other. */
+  --code-keyword: #a626a4;
+  --code-string: #1a7f37;
+  --code-number: #b45309;
+  --code-fn: #2563eb;
+  --code-attr: #b7410e;
+  --code-type: #0f766e;
   /* Headings are sans now (was a Palatino serif) — less editorial, more product. */
   --serif: var(--sans);
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
@@ -83,6 +92,12 @@ html[data-theme="dark"] {
   --scrim: rgba(0, 0, 0, 0.5);
   --check-a: #25272c;
   --check-b: #1c1e22;
+  --code-keyword: #c678dd;
+  --code-string: #8bc98b;
+  --code-number: #d9a05b;
+  --code-fn: #62a9ff;
+  --code-attr: #e0956b;
+  --code-type: #56b6c2;
 }
 
 * { box-sizing: border-box; }
@@ -287,8 +302,14 @@ body {
 /* Conversation column — mock's `max-w-3xl mx-auto space-y-5` (the px-6/py-6 gutter is supplied by
    .main-scroll). The user bubble is restyled inline with Tailwind utilities on the element. */
 .transcript { max-width: 768px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+/* The answer carries no "assistant" label — full-width prose, the way Claude Desktop reads.
+   `.who` survives for the one place that still names a block: the proposed-plan card. */
 .bubble-assistant { font-size: 15px; line-height: 1.55; white-space: pre-wrap; }
 .bubble-assistant .who { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); margin-bottom: 4px; }
+/* A finalized answer settles in rather than popping — the same easing as a streamed block,
+   so the hand-off from streaming bubble to durable item is invisible. */
+.bubble-assistant { animation: block-in 0.24s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) { .bubble-assistant { animation: none; } }
 
 /* markdown-rendered assistant content (the bubble's pre-wrap would double-space block output) */
 .md { white-space: normal; font-size: 15px; line-height: 1.68; color: var(--ink); }
@@ -316,16 +337,55 @@ body {
 .md li > p { margin: 0 0 6px; }
 .md li > p:last-child { margin-bottom: 0; }
 
-/* code */
+/* code — inline stays a quiet chip; fenced blocks get the Claude-Desktop chrome below */
 .md code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86em;
+  font-family: var(--mono); font-size: 0.86em;
   background: var(--paper); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px;
 }
-.md pre {
-  margin: 4px 0 14px; padding: 12px 14px; overflow-x: auto;
-  background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+
+/* fenced code block: a header carrying the language + copy, then the body. The header
+   only reveals its copy button on hover, so a wall of code stays calm at rest. */
+.codeblock {
+  margin: 8px 0 14px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--paper); overflow: hidden;
 }
-.md pre code { background: none; border: none; padding: 0; font-size: 12.5px; line-height: 1.55; }
+.codeblock-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 10px 6px 12px; border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 55%, transparent);
+}
+.codeblock-lang {
+  font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--faint); font-weight: 600;
+}
+.codeblock-copy {
+  display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
+  font-size: 11px; color: var(--faint); padding: 2px 6px; border-radius: 6px;
+  opacity: 0; transition: opacity 0.14s ease, color 0.14s ease, background 0.14s ease;
+}
+.codeblock:hover .codeblock-copy, .codeblock-copy:focus-visible { opacity: 1; }
+.codeblock-copy:hover { color: var(--ink); background: var(--paper); }
+.codeblock pre {
+  margin: 0; padding: 12px 14px; overflow-x: auto; background: none; border: none;
+}
+.codeblock pre code {
+  background: none; border: none; padding: 0;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
+}
+
+/* highlight.js tokens, mapped onto our own palette instead of a shipped hljs theme —
+   a theme file would hardcode one mode and break the other. */
+.hljs-comment, .hljs-quote { color: var(--faint); font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-doctag { color: var(--code-keyword); }
+.hljs-string, .hljs-regexp, .hljs-addition { color: var(--code-string); }
+.hljs-number, .hljs-symbol, .hljs-bullet { color: var(--code-number); }
+.hljs-title, .hljs-title.function_, .hljs-section, .hljs-name { color: var(--code-fn); }
+.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable { color: var(--code-attr); }
+.hljs-type, .hljs-built_in, .hljs-class .hljs-title { color: var(--code-type); }
+.hljs-meta { color: var(--muted); }
+.hljs-deletion { color: var(--danger); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
 
 /* blockquote */
 .md blockquote { margin: 4px 0 14px; padding: 4px 14px; border-left: 3px solid var(--line-strong); color: var(--muted); }
@@ -341,19 +401,76 @@ body {
 .md a:hover { text-decoration: underline; }
 .md hr { border: none; border-top: 1px solid var(--line); margin: 18px 0; }
 .md img { max-width: 100%; border-radius: 8px; }
-.stream-cursor { color: var(--accent); animation: blink 1s steps(2, start) infinite; margin-left: 1px; }
 @keyframes blink { to { opacity: 0; } }
-.waiting-transcript { max-width: 760px; margin: 18px auto 0; display: flex; }
-.waiting-row {
-  display: inline-flex; align-items: center; gap: 9px; align-self: flex-start;
-  color: var(--muted); font-size: 13px; line-height: 1;
-}
-.waiting-spinner {
-  width: 14px; height: 14px; border-radius: 50%;
-  border: 2px solid var(--line-strong); border-top-color: var(--accent);
-  animation: spin 0.8s linear infinite; flex: none;
-}
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* -- live output: paced text, blocks that fade in, a caret on the last line ------------
+   `.md-stream` is set only while text is still arriving (see StreamingMarkdown). React
+   grows the trailing block in place — no remount, so no re-animation — and mounts a fresh
+   node when the model starts the next one, which is exactly when the fade should fire. */
+.md-stream > * { animation: block-in 0.26s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+@keyframes block-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: none; }
+}
+/* The caret rides the end of the last block, inline with the text, rather than sitting on
+   its own line under it. */
+.md-stream > *:last-child::after {
+  content: "▍"; color: var(--accent); margin-left: 1px;
+  animation: blink 1s steps(2, start) infinite;
+}
+.md-stream > .codeblock:last-child::after { display: block; margin: 0 0 6px 14px; }
+
+/* Reduced motion: keep the caret (it carries state) but drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .md-stream > * { animation: none; }
+  .blips i, .step-pulse, .thinking-live, .waiting-shimmer, .turn-running { animation: none; }
+}
+
+/* -- the "still working" pulse ---------------------------------------------------------
+   Three staggered dots, used by the thinking header, the waiting row, and a running turn. */
+.blips { display: inline-flex; align-items: center; gap: 3px; margin-left: 5px; }
+.blips i {
+  width: 3.5px; height: 3.5px; border-radius: 50%; background: currentColor;
+  opacity: 0.35; animation: blip 1.25s ease-in-out infinite;
+}
+.blips i:nth-child(2) { animation-delay: 0.16s; }
+.blips i:nth-child(3) { animation-delay: 0.32s; }
+@keyframes blip {
+  0%, 70%, 100% { opacity: 0.25; transform: translateY(0); }
+  35% { opacity: 1; transform: translateY(-2px); }
+}
+
+/* A running tool step: a breathing dot with a soft halo, replacing the borrowed spinner. */
+.step-pulse {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent); animation: step-pulse 1.4s ease-in-out infinite;
+}
+@keyframes step-pulse {
+  0%, 100% { opacity: 0.5; box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+  50% { opacity: 1; box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+
+/* Shimmer for labels that mean "in progress" — a highlight sweeping across the text. */
+.waiting-shimmer, .thinking-live, .turn-running {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 0%, var(--muted) 35%,
+    var(--ink) 50%,
+    var(--muted) 65%, var(--muted) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  animation: shimmer 2.1s linear infinite;
+}
+@keyframes shimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+
+.waiting-transcript { max-width: 768px; margin: 18px auto 0; display: flex; }
+.waiting-row {
+  display: inline-flex; align-items: center; gap: 2px; align-self: flex-start;
+  color: var(--muted); font-size: 13.5px; line-height: 1;
+}
 
 .tool {
   border: 1px solid var(--line); border-radius: 9px; background: var(--panel);
@@ -1564,16 +1681,20 @@ html[data-platform="windows"] ::-webkit-scrollbar-thumb:hover,
 html[data-platform="linux"] ::-webkit-scrollbar-thumb:hover { background-color: var(--faint); }
 
 /* -- thinking (reasoning trace) disclosure — model-layer roadmap item 4 ----------- */
-.thinking { margin: 2px 0 4px; }
+.thinking { margin: 2px 0 8px; }
 .thinking-head {
-  display: flex; align-items: center; gap: 5px;
-  font-size: 12px; color: var(--faint);
-  background: none; border: none; padding: 2px 0; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12.5px; color: var(--faint);
+  background: none; border: 1px solid transparent; border-radius: 8px;
+  padding: 3px 8px 3px 5px; cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
 }
-.thinking-head:hover { color: var(--muted); }
+.thinking-head:hover { color: var(--muted); background: var(--paper); border-color: var(--line); }
+/* While reasoning is still streaming the row reads as active even at rest, so the header
+   keeps its chip instead of waiting for a hover the user may never give it. */
+.thinking.is-live .thinking-head { background: var(--paper); border-color: var(--line); }
 .thinking-caret { transition: transform 0.15s; transform: rotate(-90deg); }
 .thinking-caret.open { transform: rotate(0); }
-.thinking-live { animation: boot-pulse 1.4s ease-in-out infinite; }
 .thinking-body {
   font-size: 12px; line-height: 1.55; color: var(--muted);
   white-space: pre-wrap; overflow-wrap: anywhere;

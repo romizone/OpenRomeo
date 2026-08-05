@@ -12,6 +12,7 @@ import type { TodoItem } from "../types";
 import { AccessSection } from "./AccessSection";
 import { Icon } from "./Icon";
 import { Markdown, OPEN_ARTIFACT_EVENT } from "./Markdown";
+import { shortPersonaName } from "../personaScope";
 
 type Panel = "progress" | "artifacts";
 
@@ -76,6 +77,9 @@ export function RightRail({
   openAccessKey = 0,
   onOpenIntegrations,
 }: Props) {
+  // The empty-Progress copy names the surface doing the work. It used to hardcode
+  // "OpenWorker", which read as the wrong persona once Chat got the rail too.
+  const personaName = shortPersonaName(undefined, personaId);
   const [open, setOpen] = useState<Record<Panel, boolean>>({
     progress: true,
     artifacts: true,
@@ -163,7 +167,7 @@ export function RightRail({
       ) : (
         <>
           <RailSection title="Progress" open={open.progress} onToggle={() => setOpen({ ...open, progress: !open.progress })}>
-            <ProgressSummary running={running} toolNames={toolNames} todo={todo} />
+            <ProgressSummary running={running} toolNames={toolNames} todo={todo} personaName={personaName} />
           </RailSection>
 
           {showArtifacts && (
@@ -226,7 +230,7 @@ export function RightRail({
   );
 }
 
-function ProgressSummary({ running, toolNames, todo }: { running: boolean; toolNames: string[]; todo: TodoItem[] }) {
+function ProgressSummary({ running, toolNames, todo, personaName }: { running: boolean; toolNames: string[]; todo: TodoItem[]; personaName: string }) {
   if (todo.length) {
     return (
       <div className="rail-todo-list">
@@ -253,7 +257,7 @@ function ProgressSummary({ running, toolNames, todo }: { running: boolean; toolN
   }
   return (
     <div className="rail-muted">
-      For longer multi-step tasks, progress will appear here while OpenWorker plans, uses tools, waits for approval, and produces artifacts.
+      For longer multi-step tasks, progress will appear here while {personaName} plans, uses tools, waits for approval, and produces artifacts.
     </div>
   );
 }

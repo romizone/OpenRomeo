@@ -136,11 +136,11 @@ def test_workspace_skill_overrides_builtin(tmp_path):
 # -- engine assembly per agent --------------------------------------------------
 
 
-def test_build_engine_chat(tmp_path):
+def test_build_engine_chat_without_a_workspace_is_pure_chat(tmp_path):
+    """Direct callers (TUI, /v1/chat/completions) that hand Chat no workspace still get the
+    old workspace-less surface: `expand` skips every capability whose context is missing, so
+    nothing advertises a tool the session can't run."""
     engine = build_engine(agent=chat_agent(), provider=_Stub())
-    # Direct chat has no files/shell — and therefore no skills either: every builtin
-    # skill writes a deliverable, so advertising the catalog would promise tools that
-    # don't exist in this session.
     assert "load_skill" not in engine.registry.names()
     assert "read_file" not in engine.registry.names()
     assert engine.skill_loader is None
@@ -150,6 +150,29 @@ def test_build_engine_chat(tmp_path):
     # manager's memory_store wiring; web tools register unconditionally).
     assert "web_search" in engine.registry.names()
     assert "web_fetch" in engine.registry.names()
+
+
+def test_build_engine_chat_with_scratch_can_produce_documents(tmp_path):
+    """Given the scratch dir the manager provisions, Chat gets the full deliverable loop:
+    files + shell to run python-docx/openpyxl, the skill catalog that teaches it how, and
+    view_file to look at what it produced."""
+    engine = build_engine(agent=chat_agent(), workspace=tmp_path, provider=_Stub())
+    try:
+        names = set(engine.registry.names())
+        assert {
+            "read_file",
+            "write_file",
+            "run_shell",
+            "load_skill",
+            "view_file",
+        } <= names
+        assert engine.skill_loader is not None
+        assert engine.executor is not None
+        catalog = engine.messages[0]["content"]
+        for skill in ("docx", "xlsx", "pptx", "pdf"):
+            assert skill in catalog
+    finally:
+        engine.executor.close()
 
 
 def test_build_engine_code_has_agents_md_and_skills(tmp_path):

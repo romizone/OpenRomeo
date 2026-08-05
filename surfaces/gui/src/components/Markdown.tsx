@@ -1,6 +1,9 @@
+import { useMemo, useState } from "react";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import hljs from "highlight.js/lib/common";
 import { Icon } from "./Icon";
+import { useSmoothStream } from "../useSmoothStream";
 
 // §34 (UX-016): the agent ends a deliverable turn with plain markdown —
 // [Title](artifact:relative/path) — and the renderer turns it into a chip that opens the
@@ -44,12 +47,94 @@ function ArtifactChip({ path, title }: { path: string; title: string }) {
   );
 }
 
+// Language ids we show a friendlier label for; anything else prints as written.
+const LANG_LABEL: Record<string, string> = {
+  js: "JavaScript",
+  javascript: "JavaScript",
+  ts: "TypeScript",
+  typescript: "TypeScript",
+  jsx: "JSX",
+  tsx: "TSX",
+  py: "Python",
+  python: "Python",
+  rb: "Ruby",
+  rs: "Rust",
+  sh: "Shell",
+  bash: "Shell",
+  zsh: "Shell",
+  json: "JSON",
+  yml: "YAML",
+  yaml: "YAML",
+  md: "Markdown",
+  sql: "SQL",
+  html: "HTML",
+  css: "CSS",
+};
+
+// A fenced code block with the chrome Claude Desktop has: a header carrying the language
+// and a copy button, then the highlighted body. Highlighting is explicit-language only —
+// `highlightAuto` costs real time and guesses badly, and this re-runs on every streaming
+// delta while a block is still being written. Token colors come from our own palette
+// (styles.css) rather than a highlight.js theme, so both themes stay correct.
+function CodeBlock({ className, raw }: { className?: string; raw: string }) {
+  const [copied, setCopied] = useState(false);
+  const lang = (/language-([\w-]+)/.exec(className || "")?.[1] || "").toLowerCase();
+  const body = raw.replace(/\n$/, "");
+  const html = useMemo(() => {
+    if (!lang || !hljs.getLanguage(lang)) return null;
+    try {
+      return hljs.highlight(body, { language: lang, ignoreIllegals: true }).value;
+    } catch {
+      return null;
+    }
+  }, [body, lang]);
+
+  const copy = () => {
+    // Same rule as the message copy button: only claim success once the write lands.
+    navigator.clipboard
+      ?.writeText(body)
+      .then(() => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1200);
+      })
+      .catch(() => {});
+  };
+
+  return (
+    <div className="codeblock" data-testid="codeblock">
+      <div className="codeblock-head">
+        <span className="codeblock-lang">{LANG_LABEL[lang] || lang || "text"}</span>
+        <button
+          className="codeblock-copy"
+          data-testid="codeblock-copy"
+          title="Copy code"
+          onClick={copy}
+        >
+          {copied ? "Copied" : <Icon name="copy" size={12} />}
+        </button>
+      </div>
+      <pre>
+        {html !== null ? (
+          <code className="hljs" dangerouslySetInnerHTML={{ __html: html }} />
+        ) : (
+          <code className="hljs">{body}</code>
+        )}
+      </pre>
+    </div>
+  );
+}
+
 // Assistant messages rendered as GitHub-flavored markdown (headings, lists, tables, code,
 // links). Links open externally — never navigate the app shell — except artifact: links,
 // which open the session's artifact viewer.
-export function Markdown({ text }: { text: string }) {
+//
+// `streaming` adds the class that fades each block in as it arrives. The animation fires on
+// DOM insertion, so it lands exactly once per genuinely-new block: React mutates the trailing
+// paragraph in place as it grows (no re-animation) and mounts a fresh node when the model
+// starts the next one.
+export function Markdown({ text, streaming }: { text: string; streaming?: boolean }) {
   return (
-    <div className="md">
+    <div className={"md" + (streaming ? " md-stream" : "")}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         // artifact: is ours — keep it through the sanitizer (everything else gets the default
@@ -67,10 +152,29 @@ export function Markdown({ text }: { text: string }) {
               </a>
             );
           },
+          // react-markdown v10 dropped the `inline` prop on `code`, so the block case is
+          // taken here at the `pre` wrapper and the inner `code` element is never rendered;
+          // inline code keeps the default `<code>` and its own styling.
+          pre: ({ children }) => {
+            const child: any = Array.isArray(children) ? children[0] : children;
+            const props = child?.props ?? {};
+            const raw = Array.isArray(props.children)
+              ? props.children.join("")
+              : String(props.children ?? "");
+            return <CodeBlock className={props.className} raw={raw} />;
+          },
         }}
       >
         {text}
       </ReactMarkdown>
     </div>
   );
+}
+
+// The live half of an answer: paced by `useSmoothStream`, block-faded by `.md-stream`, and
+// carrying the caret that `.md-stream` parks at the end of the last block. Both places that
+// render streamed assistant text — the answer bubble in App and the quiet line inside a live
+// TurnGroup — go through this, so the two can't drift apart.
+export function StreamingMarkdown({ text }: { text: string }) {
+  return <Markdown text={useSmoothStream(text, true)} streaming />;
 }

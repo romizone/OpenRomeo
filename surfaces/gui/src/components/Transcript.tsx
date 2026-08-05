@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { ApprovalDecision, Item } from "../types";
 import { shortArgs } from "./ApprovalCard";
 import { humanizeAsk, humanizeTool, type HumanLine } from "../humanize";
-import { Markdown } from "./Markdown";
+import { Markdown, StreamingMarkdown } from "./Markdown";
 import { ConnectorMessageCard } from "./ConnectorMessageCard";
 import { Icon } from "./Icon";
 
@@ -56,7 +56,7 @@ function BubbleMeta({ text, ts, align }: { text: string; ts?: number; align: "le
 export function ThinkingBlock({ text, live }: { text: string; live?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="thinking">
+    <div className={"thinking" + (live ? " is-live" : "")}>
       <button
         className="thinking-head"
         onClick={() => setOpen((v) => !v)}
@@ -64,8 +64,9 @@ export function ThinkingBlock({ text, live }: { text: string; live?: boolean }) 
       >
         <Icon name="chevronDown" size={12} className={"thinking-caret" + (open ? " open" : "")} />
         <span className={live ? "thinking-live" : undefined}>
-          {live ? "Thinking…" : "Thought process"}
+          {live ? "Thinking" : "Thought process"}
         </span>
+        {live && <Blips />}
       </button>
       {open && (
         <div className="thinking-body" data-testid="thinking-body">
@@ -73,6 +74,19 @@ export function ThinkingBlock({ text, live }: { text: string; live?: boolean }) 
         </div>
       )}
     </div>
+  );
+}
+
+// Three staggered dots — the "still working" pulse used wherever the agent is mid-flight
+// (thinking, waiting, a running turn header). Decorative: the surrounding text carries the
+// meaning for screen readers.
+export function Blips() {
+  return (
+    <span className="blips" aria-hidden="true">
+      <i />
+      <i />
+      <i />
+    </span>
   );
 }
 
@@ -163,7 +177,7 @@ function StepRow({ tool, approval }: { tool: ToolItem; approval?: ApprovalItem }
     <div>
       <div className="group flex items-baseline gap-2 px-2 py-0.5 rounded-lg hover:bg-paper" data-testid="turn-step">
         <span className={"w-3.5 text-center text-[10px] shrink-0 " + (failed ? "text-danger" : running ? "text-accent" : "text-ok")}>
-          {running ? <span className="spinner" data-testid="step-running" /> : "●"}
+          {running ? <span className="step-pulse" data-testid="step-running" /> : "●"}
         </span>
         <LineText line={humanizeTool(tool.name, tool.args)} />
         {approval && approvalChip(approval.resolved)}
@@ -242,7 +256,10 @@ function TurnGroup({
       >
         <span className={"chev inline-block transition-transform" + (open ? " rotate-90" : "")}>›</span>
         <span>
-          <span>{running ? `Running ${stepsLabel}…` : stepsLabel}</span>
+          <span className={running ? "turn-running" : undefined}>
+            {running ? `Running ${stepsLabel}` : stepsLabel}
+          </span>
+          {running && <Blips />}
           {declined > 0 && (
             <>
               {" · "}
@@ -288,8 +305,7 @@ function TurnGroup({
               className="turn-narr px-2 py-1 text-[13px] text-muted max-w-[60ch]"
               data-testid="turn-live-stream"
             >
-              <Markdown text={streamingText} />
-              <span className="stream-cursor">▍</span>
+              <StreamingMarkdown text={streamingText} />
             </div>
           )}
         </div>
@@ -411,9 +427,10 @@ export function Transcript({ items, running, streamingText, onRetry }: Props) {
                   <ThinkingBlock text={item.reasoning} />
                 </div>
               );
+            // No "assistant" label: the answer is the page, the way Claude Desktop reads.
+            // Alignment and the user's filled bubble already carry who is speaking.
             return (
               <div className="group bubble-assistant" key={bi}>
-                <div className="who">assistant</div>
                 {item.reasoning && <ThinkingBlock text={item.reasoning} />}
                 <Markdown text={item.text} />
                 <BubbleMeta text={item.text} ts={item.ts} align="left" />

@@ -290,6 +290,10 @@ class SessionManager:
         if record:
             return record.workspace or None
         ag = get_agent(agent or "code")
+        if ag.scratch_workspace and not ag.needs_workspace:
+            # Chat: get_engine will provision the scratch dir, so report it here too or
+            # MCP prep would bind a workspace-less session and lose the workspace servers.
+            return self._provision_scratch(session_id)
         return self.resolve_workspace(workspace) if ag.needs_workspace else None
 
     def get_engine(
@@ -328,10 +332,14 @@ class SessionManager:
             ws = self.resolve_workspace(workspace) if ag.needs_workspace else None
             model, mode, messages = self.model, self.mode, None
 
-        if ag.needs_workspace and (not ws or not Path(ws).is_dir()):
+        if (ag.needs_workspace or ag.scratch_workspace) and (
+            not ws or not Path(ws).is_dir()
+        ):
             # Knowledge surfaces (Cowork, Ops, …) start "orphan": no folder picked →
             # auto-provision a per-conversation scratch directory (generalizes MyHelper's
-            # auto-workspace). Code-family surfaces still require a real repo; Chat needs none.
+            # auto-workspace). Chat rides the same path via `scratch_workspace` — it never
+            # picks a folder, but its documents have to land somewhere. Code-family
+            # surfaces still require a real repo.
             if ag.family == "knowledge":
                 ws = self._provision_scratch(session_id)
             else:
